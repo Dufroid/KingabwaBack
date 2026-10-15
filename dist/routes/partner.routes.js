@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const partnerController_js_1 = require("../controllers/partnerController.js");
+const auth_js_1 = require("../middlewares/auth.js");
+const router = (0, express_1.Router)();
+router.get('/', partnerController_js_1.getPartners);
+router.post('/', auth_js_1.authenticateToken, (0, auth_js_1.authorizeRoles)('ADMIN', 'SUPER_ADMIN'), partnerController_js_1.createPartner);
+router.patch('/:id', auth_js_1.authenticateToken, (0, auth_js_1.authorizeRoles)('ADMIN', 'SUPER_ADMIN'), partnerController_js_1.updatePartner);
+router.delete('/:id', auth_js_1.authenticateToken, (0, auth_js_1.authorizeRoles)('ADMIN', 'SUPER_ADMIN'), partnerController_js_1.deletePartner);
+exports.default = router;

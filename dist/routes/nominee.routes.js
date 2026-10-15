@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const nomineeController_js_1 = require("../controllers/nomineeController.js");
+const auth_js_1 = require("../middlewares/auth.js");
+const router = (0, express_1.Router)();
+router.get('/', nomineeController_js_1.getNominees);
+router.get('/:slug', nomineeController_js_1.getNomineeBySlug);
+router.post('/', auth_js_1.authenticateToken, (0, auth_js_1.authorizeRoles)('ADMIN', 'SUPER_ADMIN'), nomineeController_js_1.createNominee);
+router.patch('/:id', auth_js_1.authenticateToken, (0, auth_js_1.authorizeRoles)('ADMIN', 'SUPER_ADMIN'), nomineeController_js_1.updateNominee);
+router.delete('/:id', auth_js_1.authenticateToken, (0, auth_js_1.authorizeRoles)('ADMIN', 'SUPER_ADMIN'), nomineeController_js_1.deleteNominee);
+exports.default = router;
