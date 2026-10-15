@@ -10,6 +10,7 @@ import {
 import { authenticateToken, authorizeRoles } from '../middlewares/auth.js';
 
 const router = Router();
+router.get('/editions', getEditions);
 
 // Protect all admin routes with authentication and ADMIN / SUPER_ADMIN roles
 router.use(authenticateToken, authorizeRoles('ADMIN', 'SUPER_ADMIN'));
@@ -17,8 +18,6 @@ router.use(authenticateToken, authorizeRoles('ADMIN', 'SUPER_ADMIN'));
 router.get('/dashboard', getDashboardMetrics);
 router.get('/users', getUsers);
 router.patch('/users/:id/role', updateUserRole);
-
-router.get('/editions', getEditions);
 router.post('/editions', createEdition);
 router.patch('/editions/:id', updateEdition);
 

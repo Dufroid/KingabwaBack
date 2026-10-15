@@ -95,9 +95,11 @@ export const updateUserRole = async (req: Request, res: Response) => {
   }
 };
 
-export const getEditions = async (req: Request, res: Response) => {
+export const  getEditions = async (req: Request, res: Response) => {
+  
   try {
     const editions = await AwardEdition.find().sort({ year: -1 });
+    console.log(editions,"eee")
     return res.json({ success: true, data: editions });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
