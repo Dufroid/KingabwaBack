@@ -40,7 +40,12 @@ const VoteSchema = new mongoose_1.Schema({
     editionId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'AwardEdition', required: true },
     categoryId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Category', required: true },
     nomineeId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Nominee', required: true },
+    voteType: { type: String, enum: ['FREE', 'PAID'], default: 'FREE' },
+    points: { type: Number, default: 1 },
+    status: { type: String, enum: ['PENDING', 'CONFIRMED', 'CANCELLED'], default: 'CONFIRMED' },
+    paymentReference: { type: String, default: '' },
+    confirmedAt: { type: Date, default: null },
 }, { timestamps: { createdAt: true, updatedAt: false } });
-// Prevent user from voting multiple times in the same category for the same edition
-VoteSchema.index({ userId: 1, categoryId: 1, editionId: 1 }, { unique: true });
+// Free votes remain unique per user/category/edition. Paid votes are allowed as separate payment-confirmed increments.
+VoteSchema.index({ userId: 1, categoryId: 1, editionId: 1, voteType: 1 }, { unique: false });
 exports.Vote = mongoose_1.default.model('Vote', VoteSchema);

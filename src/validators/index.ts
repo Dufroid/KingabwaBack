@@ -3,12 +3,14 @@ import { z } from 'zod';
 export const registerSchema = z.object({
   firstName: z.string().min(2, 'Le prénom doit contenir au moins 2 caractères'),
   lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
-  email: z.string().email('Adresse e-mail invalide'),
+  phone: z.string().trim().min(8, 'Le numéro de téléphone est requis').refine((value) => /^\+?[0-9\s\-()]{8,20}$/.test(value), {
+    message: 'Numéro de téléphone invalide',
+  }),
   password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
 });
 
 export const loginSchema = z.object({
-  email: z.string().email('Adresse e-mail invalide'),
+  identifier: z.string().trim().min(8, 'Renseignez un numéro de téléphone valide'),
   password: z.string().min(1, 'Le mot de passe est requis'),
 });
 
@@ -16,6 +18,8 @@ export const castVoteSchema = z.object({
   editionId: z.string().min(1, 'L\'identifiant de l\'édition est requis'),
   categoryId: z.string().min(1, 'L\'identifiant de la catégorie est requis'),
   nomineeId: z.string().min(1, 'L\'identifiant du candidat est requis'),
+  voteType: z.enum(['FREE', 'PAID']).default('FREE'),
+  paymentReference: z.string().trim().optional(),
 });
 
 export const proposalSchema = z.object({

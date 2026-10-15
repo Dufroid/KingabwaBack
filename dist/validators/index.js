@@ -5,17 +5,21 @@ const zod_1 = require("zod");
 exports.registerSchema = zod_1.z.object({
     firstName: zod_1.z.string().min(2, 'Le prénom doit contenir au moins 2 caractères'),
     lastName: zod_1.z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
-    email: zod_1.z.string().email('Adresse e-mail invalide'),
+    phone: zod_1.z.string().trim().min(8, 'Le numéro de téléphone est requis').refine((value) => /^\+?[0-9\s\-()]{8,20}$/.test(value), {
+        message: 'Numéro de téléphone invalide',
+    }),
     password: zod_1.z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
 });
 exports.loginSchema = zod_1.z.object({
-    email: zod_1.z.string().email('Adresse e-mail invalide'),
+    identifier: zod_1.z.string().trim().min(8, 'Renseignez un numéro de téléphone valide'),
     password: zod_1.z.string().min(1, 'Le mot de passe est requis'),
 });
 exports.castVoteSchema = zod_1.z.object({
     editionId: zod_1.z.string().min(1, 'L\'identifiant de l\'édition est requis'),
     categoryId: zod_1.z.string().min(1, 'L\'identifiant de la catégorie est requis'),
     nomineeId: zod_1.z.string().min(1, 'L\'identifiant du candidat est requis'),
+    voteType: zod_1.z.enum(['FREE', 'PAID']).default('FREE'),
+    paymentReference: zod_1.z.string().trim().optional(),
 });
 exports.proposalSchema = zod_1.z.object({
     nomineeName: zod_1.z.string().min(2, 'Le nom du candidat est requis'),

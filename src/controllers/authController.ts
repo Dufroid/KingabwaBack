@@ -8,13 +8,25 @@ import { AuthRequest } from '../types/index.js';
 const JWT_SECRET = process.env.JWT_SECRET || 'kingabwa_awards_secret_jwt_key_2026_super_secure';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'kingabwa_awards_refresh_secret_jwt_key_2026';
 
+const normalizePhone = (value: string = '') => value.replace(/\s+/g, '').replace(/[^\d+]/g, '');
+
+const findUserByIdentifier = async (identifier: string) => {
+  const trimmedIdentifier = identifier.trim();
+  const normalizedPhone = normalizePhone(trimmedIdentifier);
+
+  return User.findOne({
+    $or: [{ phone: normalizedPhone }, { phone: trimmedIdentifier }],
+  });
+};
+
 export const register = async (req: Request, res: Response) => {
   try {
     const validatedData = registerSchema.parse(req.body);
+    const normalizedPhone = normalizePhone(validatedData.phone || '');
 
-    const existingUser = await User.findOne({ email: validatedData.email.toLowerCase() });
+    const existingUser = await User.findOne({ phone: normalizedPhone });
     if (existingUser) {
-      return res.status(400).json({ success: false, message: 'Un compte avec cette adresse e-mail existe déjà.' });
+      return res.status(400).json({ success: false, message: 'Un compte avec ce numéro de téléphone existe déjà.' });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -23,14 +35,14 @@ export const register = async (req: Request, res: Response) => {
     const newUser = await User.create({
       firstName: validatedData.firstName,
       lastName: validatedData.lastName,
-      email: validatedData.email.toLowerCase(),
+      phone: normalizedPhone,
       password: hashedPassword,
       role: 'VOTER',
       isVerified: true,
     });
 
     const token = jwt.sign(
-      { userId: newUser._id, email: newUser.email, role: newUser.role },
+      { userId: newUser._id, phone: newUser.phone || '', role: newUser.role },
       JWT_SECRET,
       { expiresIn: '1d' }
     );
@@ -50,7 +62,7 @@ export const register = async (req: Request, res: Response) => {
         id: newUser._id,
         firstName: newUser.firstName,
         lastName: newUser.lastName,
-        email: newUser.email,
+        phone: newUser.phone || '',
         role: newUser.role,
       },
     });
@@ -66,7 +78,7 @@ export const login = async (req: Request, res: Response) => {
   try {
     const validatedData = loginSchema.parse(req.body);
 
-    const user = await User.findOne({ email: validatedData.email.toLowerCase() });
+    const user = await findUserByIdentifier(validatedData.identifier);
     if (!user) {
       return res.status(400).json({ success: false, message: 'Identifiants invalides.' });
     }
@@ -77,7 +89,7 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const token = jwt.sign(
-      { userId: user._id, email: user.email, role: user.role },
+      { userId: user._id, phone: user.phone || '', role: user.role },
       JWT_SECRET,
       { expiresIn: '1d' }
     );
@@ -97,7 +109,7 @@ export const login = async (req: Request, res: Response) => {
         id: user._id,
         firstName: user.firstName,
         lastName: user.lastName,
-        email: user.email,
+        phone: user.phone || '',
         role: user.role,
       },
     });

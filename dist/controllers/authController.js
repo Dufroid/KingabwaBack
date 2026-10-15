@@ -10,24 +10,33 @@ const User_js_1 = require("../models/User.js");
 const index_js_1 = require("../validators/index.js");
 const JWT_SECRET = process.env.JWT_SECRET || 'kingabwa_awards_secret_jwt_key_2026_super_secure';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'kingabwa_awards_refresh_secret_jwt_key_2026';
+const normalizePhone = (value = '') => value.replace(/\s+/g, '').replace(/[^\d+]/g, '');
+const findUserByIdentifier = async (identifier) => {
+    const trimmedIdentifier = identifier.trim();
+    const normalizedPhone = normalizePhone(trimmedIdentifier);
+    return User_js_1.User.findOne({
+        $or: [{ phone: normalizedPhone }, { phone: trimmedIdentifier }],
+    });
+};
 const register = async (req, res) => {
     try {
         const validatedData = index_js_1.registerSchema.parse(req.body);
-        const existingUser = await User_js_1.User.findOne({ email: validatedData.email.toLowerCase() });
+        const normalizedPhone = normalizePhone(validatedData.phone || '');
+        const existingUser = await User_js_1.User.findOne({ phone: normalizedPhone });
         if (existingUser) {
-            return res.status(400).json({ success: false, message: 'Un compte avec cette adresse e-mail existe déjà.' });
+            return res.status(400).json({ success: false, message: 'Un compte avec ce numéro de téléphone existe déjà.' });
         }
         const salt = await bcryptjs_1.default.genSalt(10);
         const hashedPassword = await bcryptjs_1.default.hash(validatedData.password, salt);
         const newUser = await User_js_1.User.create({
             firstName: validatedData.firstName,
             lastName: validatedData.lastName,
-            email: validatedData.email.toLowerCase(),
+            phone: normalizedPhone,
             password: hashedPassword,
             role: 'VOTER',
             isVerified: true,
         });
-        const token = jsonwebtoken_1.default.sign({ userId: newUser._id, email: newUser.email, role: newUser.role }, JWT_SECRET, { expiresIn: '1d' });
+        const token = jsonwebtoken_1.default.sign({ userId: newUser._id, phone: newUser.phone || '', role: newUser.role }, JWT_SECRET, { expiresIn: '1d' });
         const refreshToken = jsonwebtoken_1.default.sign({ userId: newUser._id }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
         return res.status(201).json({
             success: true,
@@ -38,7 +47,7 @@ const register = async (req, res) => {
                 id: newUser._id,
                 firstName: newUser.firstName,
                 lastName: newUser.lastName,
-                email: newUser.email,
+                phone: newUser.phone || '',
                 role: newUser.role,
             },
         });
@@ -54,7 +63,7 @@ exports.register = register;
 const login = async (req, res) => {
     try {
         const validatedData = index_js_1.loginSchema.parse(req.body);
-        const user = await User_js_1.User.findOne({ email: validatedData.email.toLowerCase() });
+        const user = await findUserByIdentifier(validatedData.identifier);
         if (!user) {
             return res.status(400).json({ success: false, message: 'Identifiants invalides.' });
         }
@@ -62,7 +71,7 @@ const login = async (req, res) => {
         if (!isMatch) {
             return res.status(400).json({ success: false, message: 'Identifiants invalides.' });
         }
-        const token = jsonwebtoken_1.default.sign({ userId: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
+        const token = jsonwebtoken_1.default.sign({ userId: user._id, phone: user.phone || '', role: user.role }, JWT_SECRET, { expiresIn: '1d' });
         const refreshToken = jsonwebtoken_1.default.sign({ userId: user._id }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
         return res.json({
             success: true,
@@ -73,7 +82,7 @@ const login = async (req, res) => {
                 id: user._id,
                 firstName: user.firstName,
                 lastName: user.lastName,
-                email: user.email,
+                phone: user.phone || '',
                 role: user.role,
             },
         });
