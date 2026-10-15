@@ -25,9 +25,19 @@ dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 // Security & Parsing Middlewares
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 app.use((0, helmet_1.default)({ crossOriginResourcePolicy: false }));
 app.use((0, cors_1.default)({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+            return;
+        }
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
 }));
 app.use(express_1.default.json({ limit: '10mb' }));
