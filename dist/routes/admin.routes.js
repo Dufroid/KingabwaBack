@@ -10,6 +10,7 @@ router.use(auth_js_1.authenticateToken, (0, auth_js_1.authorizeRoles)('ADMIN', '
 router.get('/dashboard', adminController_js_1.getDashboardMetrics);
 router.get('/users', adminController_js_1.getUsers);
 router.get('/transactions', adminController_js_1.getTransactions);
+router.post('/editions/upload-image', adminController_js_1.uploadEditionImage, adminController_js_1.handleEditionImageUpload);
 router.patch('/users/:id/role', adminController_js_1.updateUserRole);
 router.post('/editions', adminController_js_1.createEdition);
 router.patch('/editions/:id', adminController_js_1.updateEdition);

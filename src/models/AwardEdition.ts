@@ -4,6 +4,8 @@ export interface IAwardEdition extends Document {
   name: string;
   year: number;
   description: string;
+  location?: string;
+  image?: string;
   startDate: Date;
   ceremonyDate: Date;
   votingStartDate: Date;
@@ -17,6 +19,8 @@ const AwardEditionSchema: Schema = new Schema(
     name: { type: String, required: true, trim: true },
     year: { type: Number, required: true, unique: true },
     description: { type: String, required: true },
+    location: { type: String, default: '', trim: true },
+    image: { type: String, default: '', trim: true },
     startDate: { type: Date, required: true },
     ceremonyDate: { type: Date, required: true },
     votingStartDate: { type: Date, required: true },

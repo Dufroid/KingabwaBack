@@ -58,6 +58,8 @@ const seed = async () => {
         name: 'Kingabwa Awards 2026',
         year: 2026,
         description: '4ème Édition Officielle - Célébration de l\'Excellence, de l\'Élité et de l\'Impact Socioculturel à Kingabwa.',
+        location: 'Palais des Arts, Kinshasa',
+        image: 'https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=1200',
         startDate: new Date('2026-01-01'),
         ceremonyDate: new Date('2026-11-28'),
         votingStartDate: new Date('2026-08-01'),

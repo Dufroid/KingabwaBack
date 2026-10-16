@@ -39,6 +39,8 @@ const AwardEditionSchema = new mongoose_1.Schema({
     name: { type: String, required: true, trim: true },
     year: { type: Number, required: true, unique: true },
     description: { type: String, required: true },
+    location: { type: String, default: '', trim: true },
+    image: { type: String, default: '', trim: true },
     startDate: { type: Date, required: true },
     ceremonyDate: { type: Date, required: true },
     votingStartDate: { type: Date, required: true },
