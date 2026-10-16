@@ -6,8 +6,9 @@ const BlogCategory_js_1 = require("../models/BlogCategory.js");
 const index_js_1 = require("../validators/index.js");
 const getBlogPosts = async (req, res) => {
     try {
-        const { category, search, tag, page = 1, limit = 10 } = req.query;
-        const filter = { status: 'PUBLISHED' };
+        const { category, search, tag, page = 1, limit = 10, all } = req.query;
+        const includeAll = all === 'true' || all === '1';
+        const filter = includeAll ? {} : { status: 'PUBLISHED' };
         if (category) {
             const blogCat = await BlogCategory_js_1.BlogCategory.findOne({ slug: category });
             if (blogCat)

@@ -4,7 +4,9 @@ exports.deletePartner = exports.updatePartner = exports.createPartner = exports.
 const Partner_js_1 = require("../models/Partner.js");
 const getPartners = async (req, res) => {
     try {
-        const partners = await Partner_js_1.Partner.find({ active: true }).sort({ order: 1 });
+        const includeInactive = req.query.all === 'true' || req.query.all === '1';
+        const filter = includeInactive ? {} : { active: true };
+        const partners = await Partner_js_1.Partner.find(filter).sort({ order: 1 });
         return res.json({ success: true, data: partners });
     }
     catch (error) {

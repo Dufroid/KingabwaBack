@@ -6,8 +6,9 @@ import { AuthRequest } from '../types/index.js';
 
 export const getBlogPosts = async (req: Request, res: Response) => {
   try {
-    const { category, search, tag, page = 1, limit = 10 } = req.query;
-    const filter: any = { status: 'PUBLISHED' };
+    const { category, search, tag, page = 1, limit = 10, all } = req.query;
+    const includeAll = all === 'true' || all === '1';
+    const filter: any = includeAll ? {} : { status: 'PUBLISHED' };
 
     if (category) {
       const blogCat = await BlogCategory.findOne({ slug: category as string });

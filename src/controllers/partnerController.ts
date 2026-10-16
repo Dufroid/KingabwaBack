@@ -3,7 +3,9 @@ import { Partner } from '../models/Partner.js';
 
 export const getPartners = async (req: Request, res: Response) => {
   try {
-    const partners = await Partner.find({ active: true }).sort({ order: 1 });
+    const includeInactive = req.query.all === 'true' || req.query.all === '1';
+    const filter = includeInactive ? {} : { active: true };
+    const partners = await Partner.find(filter).sort({ order: 1 });
     return res.json({ success: true, data: partners });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
