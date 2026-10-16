@@ -27,20 +27,42 @@ dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 // Security & Parsing Middlewares
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+const isAllowedOrigin = (origin) => {
+    if (!origin)
+        return true;
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(normalizedOrigin))
+        return true;
+    try {
+        const hostname = new URL(normalizedOrigin).hostname.toLowerCase();
+        return (hostname === 'localhost' ||
+            hostname === '127.0.0.1' ||
+            hostname.endsWith('.onrender.com') ||
+            hostname.endsWith('.vercel.app') ||
+            hostname.endsWith('.netlify.app') ||
+            hostname.endsWith('.railway.app') ||
+            hostname.endsWith('.fly.dev'));
+    }
+    catch {
+        return false;
+    }
+};
 app.use((0, helmet_1.default)({ crossOriginResourcePolicy: false }));
 app.use((0, cors_1.default)({
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
+        if (isAllowedOrigin(origin)) {
             callback(null, true);
             return;
         }
         callback(new Error(`Origin ${origin} not allowed by CORS`));
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express_1.default.json({ limit: '10mb' }));
 app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));
