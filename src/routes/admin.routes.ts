@@ -6,6 +6,7 @@ import {
   getEditions,
   createEdition,
   updateEdition,
+  getTransactions,
 } from '../controllers/adminController.js';
 import { authenticateToken, authorizeRoles } from '../middlewares/auth.js';
 
@@ -17,6 +18,7 @@ router.use(authenticateToken, authorizeRoles('ADMIN', 'SUPER_ADMIN'));
 
 router.get('/dashboard', getDashboardMetrics);
 router.get('/users', getUsers);
+router.get('/transactions', getTransactions);
 router.patch('/users/:id/role', updateUserRole);
 router.post('/editions', createEdition);
 router.patch('/editions/:id', updateEdition);

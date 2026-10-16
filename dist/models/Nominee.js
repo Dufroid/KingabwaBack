@@ -41,8 +41,8 @@ const NomineeSchema = new mongoose_1.Schema({
     fullName: { type: String, required: true, trim: true },
     slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
     profileImage: { type: String, required: true },
-    shortBio: { type: String, required: true },
-    biography: { type: String, required: true },
+    shortBio: { type: String, default: '' },
+    biography: { type: String, default: '' },
     achievements: [{ type: String }],
     socialLinks: {
         facebook: { type: String, default: '' },

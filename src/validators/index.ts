@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+const uploadAssetSchema = z.union([
+  z.string().url(),
+  z.string().startsWith('/uploads/'),
+  z.string().startsWith('uploads/'),
+]);
+
 export const registerSchema = z.object({
   firstName: z.string().min(2, 'Le prénom doit contenir au moins 2 caractères'),
   lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
@@ -51,9 +57,9 @@ export const createNomineeSchema = z.object({
   editionId: z.string().min(1),
   categoryId: z.string().min(1),
   fullName: z.string().min(2),
-  profileImage: z.string().url(),
-  shortBio: z.string().min(5),
-  biography: z.string().min(10),
+  profileImage: uploadAssetSchema,
+  shortBio: z.string().optional().default(''),
+  biography: z.string().optional().default(''),
   achievements: z.array(z.string()).optional(),
   socialLinks: z.object({
     facebook: z.string().optional(),
@@ -68,7 +74,7 @@ export const createBlogPostSchema = z.object({
   title: z.string().min(3),
   excerpt: z.string().min(10),
   content: z.string().min(20),
-  featuredImage: z.string().url(),
+  featuredImage: uploadAssetSchema,
   categoryId: z.string().min(1),
   tags: z.array(z.string()).optional(),
   status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),

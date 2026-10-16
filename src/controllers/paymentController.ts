@@ -84,6 +84,7 @@ export const initiatePaidVotePayment = async (req: AuthRequest, res: Response) =
         editionId,
         categoryId,
         nomineeId,
+        otpCode: payment.otpCode || '',
       },
     });
 
@@ -106,7 +107,9 @@ export const initiatePaidVotePayment = async (req: AuthRequest, res: Response) =
 
 export const confirmPaidVoteWebhook = async (req: Request, res: Response) => {
   try {
-    const { reference, status } = req.body || {};
+    const { reference, status, otpCode, code } = req.body || {};
+    const submittedCode = (otpCode ?? code ?? '').toString().trim();
+
     if (!reference) {
       return res.status(400).json({ success: false, message: 'Référence de paiement requise.' });
     }
@@ -116,8 +119,25 @@ export const confirmPaidVoteWebhook = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Transaction introuvable.' });
     }
 
-    if (status === 'PAID' || status === 'SUCCESS') {
-      const confirmation = await confirmMobileMoneyPayment(reference);
+    if (payment.provider === 'MOCK' || payment.metadata?.otpCode) {
+      if (!submittedCode) {
+        return res.status(400).json({
+          success: false,
+          message: 'Le code de confirmation est obligatoire pour valider la transaction mobile money.',
+        });
+      }
+
+      const expectedCode = payment.metadata?.otpCode || '';
+      if (expectedCode && submittedCode !== expectedCode) {
+        return res.status(400).json({
+          success: false,
+          message: 'Le code de confirmation est incorrect. Vérifiez le code reçu sur le téléphone.',
+        });
+      }
+    }
+
+    if (status === 'PAID' || status === 'SUCCESS' || submittedCode) {
+      const confirmation = await confirmMobileMoneyPayment(reference, submittedCode || undefined);
       const vote = await Vote.findById(payment.voteId);
       if (vote && vote.status !== 'CONFIRMED') {
         vote.status = 'CONFIRMED';
@@ -127,6 +147,9 @@ export const confirmPaidVoteWebhook = async (req: Request, res: Response) => {
       }
 
       payment.status = 'PAID';
+      if (payment.metadata) {
+        payment.metadata.otpCode = payment.metadata.otpCode || submittedCode || '';
+      }
       await payment.save();
 
       return res.json({ success: true, message: confirmation.message, payment });

@@ -6,8 +6,8 @@ export interface INominee extends Document {
   fullName: string;
   slug: string;
   profileImage: string;
-  shortBio: string;
-  biography: string;
+  shortBio?: string;
+  biography?: string;
   achievements: string[];
   socialLinks: {
     facebook?: string;
@@ -28,8 +28,8 @@ const NomineeSchema: Schema = new Schema(
     fullName: { type: String, required: true, trim: true },
     slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
     profileImage: { type: String, required: true },
-    shortBio: { type: String, required: true },
-    biography: { type: String, required: true },
+    shortBio: { type: String, default: '' },
+    biography: { type: String, default: '' },
     achievements: [{ type: String }],
     socialLinks: {
       facebook: { type: String, default: '' },

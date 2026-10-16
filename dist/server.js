@@ -7,6 +7,7 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const dotenv_1 = __importDefault(require("dotenv"));
+const path_1 = __importDefault(require("path"));
 const db_js_1 = require("./config/db.js");
 const swagger_js_1 = require("./config/swagger.js");
 const errorHandler_js_1 = require("./middlewares/errorHandler.js");
@@ -43,6 +44,8 @@ app.use((0, cors_1.default)({
 }));
 app.use(express_1.default.json({ limit: '10mb' }));
 app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));
+const uploadsBasePath = path_1.default.join(process.cwd(), 'uploads');
+app.use('/uploads', express_1.default.static(uploadsBasePath));
 // Swagger API Documentation JSON Route
 app.get('/api-docs', (req, res) => {
     res.json(swagger_js_1.swaggerSpec);

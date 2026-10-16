@@ -2,6 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createBlogPostSchema = exports.createNomineeSchema = exports.createCategorySchema = exports.proposalSchema = exports.castVoteSchema = exports.loginSchema = exports.registerSchema = void 0;
 const zod_1 = require("zod");
+const uploadAssetSchema = zod_1.z.union([
+    zod_1.z.string().url(),
+    zod_1.z.string().startsWith('/uploads/'),
+    zod_1.z.string().startsWith('uploads/'),
+]);
 exports.registerSchema = zod_1.z.object({
     firstName: zod_1.z.string().min(2, 'Le prénom doit contenir au moins 2 caractères'),
     lastName: zod_1.z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
@@ -48,9 +53,9 @@ exports.createNomineeSchema = zod_1.z.object({
     editionId: zod_1.z.string().min(1),
     categoryId: zod_1.z.string().min(1),
     fullName: zod_1.z.string().min(2),
-    profileImage: zod_1.z.string().url(),
-    shortBio: zod_1.z.string().min(5),
-    biography: zod_1.z.string().min(10),
+    profileImage: uploadAssetSchema,
+    shortBio: zod_1.z.string().optional().default(''),
+    biography: zod_1.z.string().optional().default(''),
     achievements: zod_1.z.array(zod_1.z.string()).optional(),
     socialLinks: zod_1.z.object({
         facebook: zod_1.z.string().optional(),
@@ -64,7 +69,7 @@ exports.createBlogPostSchema = zod_1.z.object({
     title: zod_1.z.string().min(3),
     excerpt: zod_1.z.string().min(10),
     content: zod_1.z.string().min(20),
-    featuredImage: zod_1.z.string().url(),
+    featuredImage: uploadAssetSchema,
     categoryId: zod_1.z.string().min(1),
     tags: zod_1.z.array(zod_1.z.string()).optional(),
     status: zod_1.z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),

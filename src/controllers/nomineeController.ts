@@ -1,6 +1,62 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
+import multer from 'multer';
 import { Nominee } from '../models/Nominee.js';
 import { createNomineeSchema } from '../validators/index.js';
+
+const nomineeUploadDir = path.join(process.cwd(), 'uploads', 'nominees');
+fs.mkdirSync(nomineeUploadDir, { recursive: true });
+
+const nomineeStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, nomineeUploadDir),
+  filename: (_req, file, cb) => {
+    const safeName = file.originalname
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9._-]/g, '');
+    const extension = path.extname(safeName) || '.jpg';
+    const baseName = path.basename(safeName, extension).slice(0, 40) || 'nominee';
+    cb(null, `${Date.now()}-${baseName}${extension}`);
+  },
+});
+
+export const uploadNomineeImage = multer({
+  storage: nomineeStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      cb(new Error('Seules les images sont autorisées.'));
+      return;
+    }
+    cb(null, true);
+  },
+}).single('image');
+
+export const handleNomineeImageUpload = async (req: Request, res: Response) => {
+  try {
+    const file = (req as any).file;
+    if (!file) {
+      return res.status(400).json({ success: false, message: 'Aucune image fournie.' });
+    }
+
+    const baseUrl = (process.env.UPLOADS_BASE_URL || `http://localhost:${process.env.PORT || 5000}`).replace(/\/$/, '');
+    const relativePath = `/uploads/nominees/${file.filename}`;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        url: `${baseUrl}${relativePath}`,
+        relativePath,
+        fileName: file.filename,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 export const getNominees = async (req: Request, res: Response) => {
   try {

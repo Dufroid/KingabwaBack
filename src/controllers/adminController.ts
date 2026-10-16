@@ -6,6 +6,7 @@ import { Category } from '../models/Category.js';
 import { BlogPost } from '../models/BlogPost.js';
 import { NominationProposal } from '../models/NominationProposal.js';
 import { AwardEdition } from '../models/AwardEdition.js';
+import { PaymentTransaction } from '../models/PaymentTransaction.js';
 
 export const getDashboardMetrics = async (req: Request, res: Response) => {
   try {
@@ -122,5 +123,52 @@ export const updateEdition = async (req: Request, res: Response) => {
     return res.json({ success: true, data: updated });
   } catch (error: any) {
     return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const getTransactions = async (req: Request, res: Response) => {
+  try {
+    const transactions = await PaymentTransaction.find()
+      .sort({ createdAt: -1 })
+      .populate('userId', 'firstName lastName phone email role')
+      .populate('voteId', 'voteType points status nomineeId');
+
+    return res.json({
+      success: true,
+      count: transactions.length,
+      data: transactions.map((tx) => ({
+        _id: tx._id,
+        reference: tx.reference,
+        provider: tx.provider,
+        amount: tx.amount,
+        currency: tx.currency,
+        phone: tx.phone,
+        status: tx.status,
+        externalTransactionId: tx.externalTransactionId,
+        createdAt: tx.createdAt,
+        updatedAt: tx.updatedAt,
+        user: tx.userId
+          ? {
+              _id: (tx.userId as any)._id,
+              fullName: `${(tx.userId as any).firstName || ''} ${(tx.userId as any).lastName || ''}`.trim(),
+              phone: (tx.userId as any).phone,
+              email: (tx.userId as any).email,
+              role: (tx.userId as any).role,
+            }
+          : null,
+        vote: tx.voteId
+          ? {
+              _id: (tx.voteId as any)._id,
+              voteType: (tx.voteId as any).voteType,
+              points: (tx.voteId as any).points,
+              status: (tx.voteId as any).status,
+              nomineeId: (tx.voteId as any).nomineeId,
+            }
+          : null,
+        metadata: tx.metadata || {},
+      })),
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

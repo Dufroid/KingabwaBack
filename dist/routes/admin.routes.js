@@ -9,6 +9,7 @@ router.get('/editions', adminController_js_1.getEditions);
 router.use(auth_js_1.authenticateToken, (0, auth_js_1.authorizeRoles)('ADMIN', 'SUPER_ADMIN'));
 router.get('/dashboard', adminController_js_1.getDashboardMetrics);
 router.get('/users', adminController_js_1.getUsers);
+router.get('/transactions', adminController_js_1.getTransactions);
 router.patch('/users/:id/role', adminController_js_1.updateUserRole);
 router.post('/editions', adminController_js_1.createEdition);
 router.patch('/editions/:id', adminController_js_1.updateEdition);

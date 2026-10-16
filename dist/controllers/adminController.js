@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateEdition = exports.createEdition = exports.getEditions = exports.updateUserRole = exports.getUsers = exports.getDashboardMetrics = void 0;
+exports.getTransactions = exports.updateEdition = exports.createEdition = exports.getEditions = exports.updateUserRole = exports.getUsers = exports.getDashboardMetrics = void 0;
 const User_js_1 = require("../models/User.js");
 const Vote_js_1 = require("../models/Vote.js");
 const Nominee_js_1 = require("../models/Nominee.js");
@@ -8,6 +8,7 @@ const Category_js_1 = require("../models/Category.js");
 const BlogPost_js_1 = require("../models/BlogPost.js");
 const NominationProposal_js_1 = require("../models/NominationProposal.js");
 const AwardEdition_js_1 = require("../models/AwardEdition.js");
+const PaymentTransaction_js_1 = require("../models/PaymentTransaction.js");
 const getDashboardMetrics = async (req, res) => {
     try {
         const totalUsers = await User_js_1.User.countDocuments();
@@ -123,3 +124,50 @@ const updateEdition = async (req, res) => {
     }
 };
 exports.updateEdition = updateEdition;
+const getTransactions = async (req, res) => {
+    try {
+        const transactions = await PaymentTransaction_js_1.PaymentTransaction.find()
+            .sort({ createdAt: -1 })
+            .populate('userId', 'firstName lastName phone email role')
+            .populate('voteId', 'voteType points status nomineeId');
+        return res.json({
+            success: true,
+            count: transactions.length,
+            data: transactions.map((tx) => ({
+                _id: tx._id,
+                reference: tx.reference,
+                provider: tx.provider,
+                amount: tx.amount,
+                currency: tx.currency,
+                phone: tx.phone,
+                status: tx.status,
+                externalTransactionId: tx.externalTransactionId,
+                createdAt: tx.createdAt,
+                updatedAt: tx.updatedAt,
+                user: tx.userId
+                    ? {
+                        _id: tx.userId._id,
+                        fullName: `${tx.userId.firstName || ''} ${tx.userId.lastName || ''}`.trim(),
+                        phone: tx.userId.phone,
+                        email: tx.userId.email,
+                        role: tx.userId.role,
+                    }
+                    : null,
+                vote: tx.voteId
+                    ? {
+                        _id: tx.voteId._id,
+                        voteType: tx.voteId.voteType,
+                        points: tx.voteId.points,
+                        status: tx.voteId.status,
+                        nomineeId: tx.voteId.nomineeId,
+                    }
+                    : null,
+                metadata: tx.metadata || {},
+            })),
+        });
+    }
+    catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.getTransactions = getTransactions;

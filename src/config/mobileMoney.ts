@@ -16,6 +16,9 @@ export interface MobileMoneyInitResponse {
   externalTransactionId: string;
   status: 'PENDING' | 'PAID';
   message: string;
+  otpCode?: string;
+  providerLabel?: string;
+  expiresInSeconds?: number;
 }
 
 const normalizeProvider = (provider?: string): MobileMoneyProvider => {
@@ -25,6 +28,14 @@ const normalizeProvider = (provider?: string): MobileMoneyProvider => {
   return 'MOCK';
 };
 
+const generateOtpCode = () => String(Math.floor(100000 + Math.random() * 900000));
+
+const getProviderLabel = (provider: MobileMoneyProvider) => {
+  if (provider === 'AIRTEL_MONEY') return 'Airtel Money';
+  if (provider === 'ORANGE_MONEY') return 'Orange Money';
+  return 'Simulation mobile money';
+};
+
 export const initiateMobileMoneyPayment = async ({
   provider,
   amount,
@@ -32,81 +43,110 @@ export const initiateMobileMoneyPayment = async ({
   reference,
 }: InitiateMobileMoneyArgs): Promise<MobileMoneyInitResponse> => {
   const resolvedProvider = normalizeProvider(provider);
+  const providerLabel = getProviderLabel(resolvedProvider);
+  const otpCode = generateOtpCode();
 
   if (resolvedProvider === 'MOCK') {
-    return {
-      success: true,
-      provider: 'MOCK',
-      amount,
-      phone,
-      reference,
-      externalTransactionId: `mock-${Date.now()}`,
-      status: 'PENDING',
-      message: 'Paiement mobile money simulé. La confirmation est automatique en mode développement.',
-    };
+   return {
+     success: true,
+     provider: 'MOCK',
+     amount,
+     phone,
+     reference,
+     externalTransactionId: `mock-${Date.now()}`,
+     status: 'PENDING',
+     message: 'Le simulateur de paiement a bien démarré. Entrez le code affiché pour valider la transaction.',
+     otpCode,
+     providerLabel,
+     expiresInSeconds: 180,
+   };
   }
 
   const apiUrl = resolvedProvider === 'AIRTEL_MONEY'
-    ? process.env.AIRTEL_MONEY_API_URL
-    : process.env.ORANGE_MONEY_API_URL;
+   ? process.env.AIRTEL_MONEY_API_URL
+   : process.env.ORANGE_MONEY_API_URL;
 
   const apiKey = resolvedProvider === 'AIRTEL_MONEY'
-    ? process.env.AIRTEL_MONEY_API_KEY
-    : process.env.ORANGE_MONEY_API_KEY;
+   ? process.env.AIRTEL_MONEY_API_KEY
+   : process.env.ORANGE_MONEY_API_KEY;
 
   if (!apiUrl || !apiKey) {
-    throw new Error(`Les variables ${resolvedProvider === 'AIRTEL_MONEY' ? 'AIRTEL_MONEY_API_URL / AIRTEL_MONEY_API_KEY' : 'ORANGE_MONEY_API_URL / ORANGE_MONEY_API_KEY'} sont manquantes.`);
+   return {
+     success: true,
+     provider: resolvedProvider,
+     amount,
+     phone,
+     reference,
+     externalTransactionId: `sim-${Date.now()}`,
+     status: 'PENDING',
+     message: `Simulation locale activée pour ${providerLabel}. Un code de confirmation a été généré pour tester le flux de paiement RDC.`,
+     otpCode,
+     providerLabel,
+     expiresInSeconds: 180,
+   };
   }
 
   const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      amount,
-      phone,
-      reference,
-      currency: 'CDF',
-      provider: resolvedProvider,
-    }),
+   method: 'POST',
+   headers: {
+     'Content-Type': 'application/json',
+     'Authorization': `Bearer ${apiKey}`,
+   },
+   body: JSON.stringify({
+     amount,
+     phone,
+     reference,
+     currency: 'CDF',
+     provider: resolvedProvider,
+   }),
   });
 
   if (!response.ok) {
-    throw new Error(`Échec de l'initiation du paiement mobile money via ${resolvedProvider}.`);
+   throw new Error(`Échec de l'initiation du paiement mobile money via ${resolvedProvider}.`);
   }
 
   const data = await response.json();
 
   return {
-    success: true,
-    provider: resolvedProvider,
-    amount,
-    phone,
-    reference,
-    externalTransactionId: data.transactionId || data.id || `${resolvedProvider}-${Date.now()}`,
-    status: 'PENDING',
-    message: data.message || 'Le paiement a été initié avec succès.',
+   success: true,
+   provider: resolvedProvider,
+   amount,
+   phone,
+   reference,
+   externalTransactionId: data.transactionId || data.id || `${resolvedProvider}-${Date.now()}`,
+   status: 'PENDING',
+   message: data.message || `Paiement ${providerLabel} initié. Le code de confirmation a été envoyé.` ,
+   otpCode: data.otpCode || otpCode,
+   providerLabel,
+   expiresInSeconds: data.expiresInSeconds || 180,
   };
 };
 
-export const confirmMobileMoneyPayment = async (reference: string) => {
+export const confirmMobileMoneyPayment = async (reference: string, otpCode?: string) => {
   const provider = normalizeProvider(process.env.MOBILE_MONEY_PROVIDER);
 
+  if (!otpCode) {
+   return {
+     success: false,
+     status: 'PENDING',
+     reference,
+     message: 'Le code de confirmation est obligatoire pour valider le paiement.',
+   };
+  }
+
   if (provider === 'MOCK') {
-    return {
-      success: true,
-      status: 'PAID',
-      reference,
-      message: 'Paiement mobile money confirmé en mode mock.',
-    };
+   return {
+     success: true,
+     status: 'PAID',
+     reference,
+     message: 'Paiement mobile money confirmé en mode simulateur.',
+   };
   }
 
   return {
-    success: true,
-    status: 'PAID',
-    reference,
-    message: 'Paiement confirmé par la passerelle mobile money.',
+   success: true,
+   status: 'PAID',
+   reference,
+   message: `Paiement ${getProviderLabel(provider)} confirmé avec succès.`,
   };
 };

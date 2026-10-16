@@ -75,6 +75,7 @@ const initiatePaidVotePayment = async (req, res) => {
                 editionId,
                 categoryId,
                 nomineeId,
+                otpCode: payment.otpCode || '',
             },
         });
         if (payment.status === 'PAID') {
@@ -96,7 +97,8 @@ const initiatePaidVotePayment = async (req, res) => {
 exports.initiatePaidVotePayment = initiatePaidVotePayment;
 const confirmPaidVoteWebhook = async (req, res) => {
     try {
-        const { reference, status } = req.body || {};
+        const { reference, status, otpCode, code } = req.body || {};
+        const submittedCode = (otpCode ?? code ?? '').toString().trim();
         if (!reference) {
             return res.status(400).json({ success: false, message: 'Référence de paiement requise.' });
         }
@@ -104,8 +106,23 @@ const confirmPaidVoteWebhook = async (req, res) => {
         if (!payment) {
             return res.status(404).json({ success: false, message: 'Transaction introuvable.' });
         }
-        if (status === 'PAID' || status === 'SUCCESS') {
-            const confirmation = await (0, mobileMoney_js_1.confirmMobileMoneyPayment)(reference);
+        if (payment.provider === 'MOCK' || payment.metadata?.otpCode) {
+            if (!submittedCode) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Le code de confirmation est obligatoire pour valider la transaction mobile money.',
+                });
+            }
+            const expectedCode = payment.metadata?.otpCode || '';
+            if (expectedCode && submittedCode !== expectedCode) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Le code de confirmation est incorrect. Vérifiez le code reçu sur le téléphone.',
+                });
+            }
+        }
+        if (status === 'PAID' || status === 'SUCCESS' || submittedCode) {
+            const confirmation = await (0, mobileMoney_js_1.confirmMobileMoneyPayment)(reference, submittedCode || undefined);
             const vote = await Vote_js_1.Vote.findById(payment.voteId);
             if (vote && vote.status !== 'CONFIRMED') {
                 vote.status = 'CONFIRMED';
@@ -114,6 +131,9 @@ const confirmPaidVoteWebhook = async (req, res) => {
                 await Nominee_js_1.Nominee.findByIdAndUpdate(vote.nomineeId, { $inc: { voteCount: vote.points } });
             }
             payment.status = 'PAID';
+            if (payment.metadata) {
+                payment.metadata.otpCode = payment.metadata.otpCode || submittedCode || '';
+            }
             await payment.save();
             return res.json({ success: true, message: confirmation.message, payment });
         }
