@@ -1,28 +1,11 @@
 import { Request, Response } from 'express';
-import fs from 'fs';
-import path from 'path';
 import multer from 'multer';
 import { Nominee } from '../models/Nominee.js';
+import { buildLocalUploadResponse, isCloudinaryConfigured, uploadToCloudinary } from '../config/cloudinary.js';
 import { createNomineeSchema } from '../validators/index.js';
 
-const nomineeUploadDir = path.join(process.cwd(), 'uploads', 'nominees');
-fs.mkdirSync(nomineeUploadDir, { recursive: true });
-
-const nomineeStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, nomineeUploadDir),
-  filename: (_req, file, cb) => {
-    const safeName = file.originalname
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9._-]/g, '');
-    const extension = path.extname(safeName) || '.jpg';
-    const baseName = path.basename(safeName, extension).slice(0, 40) || 'nominee';
-    cb(null, `${Date.now()}-${baseName}${extension}`);
-  },
-});
-
 export const uploadNomineeImage = multer({
-  storage: nomineeStorage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024,
   },
@@ -37,20 +20,25 @@ export const uploadNomineeImage = multer({
 
 export const handleNomineeImageUpload = async (req: Request, res: Response) => {
   try {
-    const file = (req as any).file;
+    const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) {
       return res.status(400).json({ success: false, message: 'Aucune image fournie.' });
     }
 
-    const baseUrl = (process.env.UPLOADS_BASE_URL || `http://localhost:${process.env.PORT || 5000}`).replace(/\/$/, '');
-    const relativePath = `/uploads/nominees/${file.filename}`;
+    let uploadResult: { url: string; relativePath?: string; fileName?: string; publicId?: string };
+
+    if (isCloudinaryConfigured) {
+      uploadResult = await uploadToCloudinary(file, 'kingabwa/nominees');
+    } else {
+      uploadResult = buildLocalUploadResponse(file, 'nominees');
+    }
 
     return res.status(200).json({
       success: true,
       data: {
-        url: `${baseUrl}${relativePath}`,
-        relativePath,
-        fileName: file.filename,
+        url: uploadResult.url,
+        relativePath: uploadResult.relativePath || null,
+        fileName: uploadResult.fileName || uploadResult.publicId || 'nominee-image',
       },
     });
   } catch (error: any) {

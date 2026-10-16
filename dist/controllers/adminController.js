@@ -4,8 +4,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getTransactions = exports.updateEdition = exports.createEdition = exports.getEditions = exports.updateUserRole = exports.getUsers = exports.getDashboardMetrics = exports.handleEditionImageUpload = exports.uploadEditionImage = void 0;
-const fs_1 = __importDefault(require("fs"));
-const path_1 = __importDefault(require("path"));
 const multer_1 = __importDefault(require("multer"));
 const User_js_1 = require("../models/User.js");
 const Vote_js_1 = require("../models/Vote.js");
@@ -15,22 +13,9 @@ const BlogPost_js_1 = require("../models/BlogPost.js");
 const NominationProposal_js_1 = require("../models/NominationProposal.js");
 const AwardEdition_js_1 = require("../models/AwardEdition.js");
 const PaymentTransaction_js_1 = require("../models/PaymentTransaction.js");
-const editionUploadDir = path_1.default.join(process.cwd(), 'uploads', 'editions');
-fs_1.default.mkdirSync(editionUploadDir, { recursive: true });
-const editionStorage = multer_1.default.diskStorage({
-    destination: (_req, _file, cb) => cb(null, editionUploadDir),
-    filename: (_req, file, cb) => {
-        const safeName = file.originalname
-            .toLowerCase()
-            .replace(/\s+/g, '-')
-            .replace(/[^a-z0-9._-]/g, '');
-        const extension = path_1.default.extname(safeName) || '.jpg';
-        const baseName = path_1.default.basename(safeName, extension).slice(0, 40) || 'edition';
-        cb(null, `${Date.now()}-${baseName}${extension}`);
-    },
-});
+const cloudinary_js_1 = require("../config/cloudinary.js");
 exports.uploadEditionImage = (0, multer_1.default)({
-    storage: editionStorage,
+    storage: multer_1.default.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (_req, file, cb) => {
         if (!file.mimetype.startsWith('image/')) {
@@ -46,14 +31,19 @@ const handleEditionImageUpload = async (req, res) => {
         if (!file) {
             return res.status(400).json({ success: false, message: 'Aucune image fournie.' });
         }
-        const baseUrl = (process.env.UPLOADS_BASE_URL || `http://localhost:${process.env.PORT || 5000}`).replace(/\/$/, '');
-        const relativePath = `/uploads/editions/${file.filename}`;
+        let uploadResult;
+        if (cloudinary_js_1.isCloudinaryConfigured) {
+            uploadResult = await (0, cloudinary_js_1.uploadToCloudinary)(file, 'kingabwa/editions');
+        }
+        else {
+            uploadResult = (0, cloudinary_js_1.buildLocalUploadResponse)(file, 'editions');
+        }
         return res.status(200).json({
             success: true,
             data: {
-                url: `${baseUrl}${relativePath}`,
-                relativePath,
-                fileName: file.filename,
+                url: uploadResult.url,
+                relativePath: uploadResult.relativePath || null,
+                fileName: uploadResult.fileName || uploadResult.publicId || 'edition-image',
             },
         });
     }

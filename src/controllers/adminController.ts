@@ -1,6 +1,4 @@
 import { Request, Response } from 'express';
-import fs from 'fs';
-import path from 'path';
 import multer from 'multer';
 import { User } from '../models/User.js';
 import { Vote } from '../models/Vote.js';
@@ -10,25 +8,10 @@ import { BlogPost } from '../models/BlogPost.js';
 import { NominationProposal } from '../models/NominationProposal.js';
 import { AwardEdition } from '../models/AwardEdition.js';
 import { PaymentTransaction } from '../models/PaymentTransaction.js';
-
-const editionUploadDir = path.join(process.cwd(), 'uploads', 'editions');
-fs.mkdirSync(editionUploadDir, { recursive: true });
-
-const editionStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, editionUploadDir),
-  filename: (_req, file, cb) => {
-    const safeName = file.originalname
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9._-]/g, '');
-    const extension = path.extname(safeName) || '.jpg';
-    const baseName = path.basename(safeName, extension).slice(0, 40) || 'edition';
-    cb(null, `${Date.now()}-${baseName}${extension}`);
-  },
-});
+import { buildLocalUploadResponse, isCloudinaryConfigured, uploadToCloudinary } from '../config/cloudinary.js';
 
 export const uploadEditionImage = multer({
-  storage: editionStorage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (!file.mimetype.startsWith('image/')) {
@@ -41,27 +24,31 @@ export const uploadEditionImage = multer({
 
 export const handleEditionImageUpload = async (req: Request, res: Response) => {
   try {
-    const file = (req as any).file;
+    const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) {
       return res.status(400).json({ success: false, message: 'Aucune image fournie.' });
     }
 
-    const baseUrl = (process.env.UPLOADS_BASE_URL || `http://localhost:${process.env.PORT || 5000}`).replace(/\/$/, '');
-    const relativePath = `/uploads/editions/${file.filename}`;
+    let uploadResult: { url: string; relativePath?: string; fileName?: string; publicId?: string };
+
+    if (isCloudinaryConfigured) {
+      uploadResult = await uploadToCloudinary(file, 'kingabwa/editions');
+    } else {
+      uploadResult = buildLocalUploadResponse(file, 'editions');
+    }
 
     return res.status(200).json({
       success: true,
       data: {
-        url: `${baseUrl}${relativePath}`,
-        relativePath,
-        fileName: file.filename,
+        url: uploadResult.url,
+        relativePath: uploadResult.relativePath || null,
+        fileName: uploadResult.fileName || uploadResult.publicId || 'edition-image',
       },
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
-
 export const getDashboardMetrics = async (req: Request, res: Response) => {
   try {
     const totalUsers = await User.countDocuments();
