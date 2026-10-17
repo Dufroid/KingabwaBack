@@ -75,6 +75,7 @@ export const createBlogPostSchema = z.object({
   excerpt: z.string().min(10),
   content: z.string().min(20),
   featuredImage: uploadAssetSchema,
+  mediaType: z.enum(['IMAGE', 'VIDEO', 'PDF']).optional().default('IMAGE'),
   categoryId: z.string().min(1),
   tags: z.array(z.string()).optional(),
   status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),

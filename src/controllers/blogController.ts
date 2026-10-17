@@ -8,10 +8,14 @@ import { buildLocalUploadResponse, isCloudinaryConfigured, uploadToCloudinary } 
 
 export const uploadBlogMedia = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }, // allow up to 50MB for videos
+  limits: { fileSize: 50 * 1024 * 1024 }, // allow up to 50MB for videos and PDFs
   fileFilter: (_req, file, cb) => {
-    if (!file.mimetype.startsWith('image/') && !file.mimetype.startsWith('video/')) {
-      cb(new Error('Seules les images et vidéos sont autorisées.'));
+    const isImage = file.mimetype.startsWith('image/');
+    const isVideo = file.mimetype.startsWith('video/');
+    const isPdf = file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf');
+
+    if (!isImage && !isVideo && !isPdf) {
+      cb(new Error('Seules les images, vidéos et fichiers PDF sont autorisés.'));
       return;
     }
     cb(null, true);
@@ -25,15 +29,26 @@ export const handleBlogMediaUpload = async (req: Request, res: Response) => {
 
     let uploadResult: { url: string; relativePath?: string; fileName?: string; publicId?: string };
 
-    const resourceType = file.mimetype.startsWith('video/') ? 'video' : 'image';
+    const normalizedMime = file.mimetype || '';
+    const isVideo = normalizedMime.startsWith('video/');
+    const isPdf = normalizedMime === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf');
+    const resourceType = isVideo ? 'video' : isPdf ? 'raw' : 'image';
+    const mediaType = isVideo ? 'VIDEO' : isPdf ? 'PDF' : 'IMAGE';
 
     if (isCloudinaryConfigured) {
-      uploadResult = await uploadToCloudinary(file, 'kingabwa/blog', resourceType as 'image' | 'video');
+      uploadResult = await uploadToCloudinary(file, 'kingabwa/blog', resourceType as 'image' | 'video' | 'raw');
     } else {
-      uploadResult = buildLocalUploadResponse(file, resourceType === 'video' ? 'blog_videos' : 'blog_media');
+      uploadResult = buildLocalUploadResponse(file, isVideo ? 'blog_videos' : isPdf ? 'blog_files' : 'blog_media');
     }
 
-    return res.json({ success: true, data: { url: uploadResult.url, fileName: uploadResult.fileName || uploadResult.publicId } });
+    return res.json({
+      success: true,
+      data: {
+        url: uploadResult.url,
+        fileName: uploadResult.fileName || uploadResult.publicId,
+        mediaType,
+      },
+    });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -120,6 +135,39 @@ export const getBlogCategories = async (req: Request, res: Response) => {
   }
 };
 
+export const createBlogCategory = async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, description } = req.body || {};
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ success: false, message: 'Le nom de la catégorie est requis.' });
+    }
+
+    const slug = String(name)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    const existing = await BlogCategory.findOne({ slug });
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'Cette catégorie existe déjà.' });
+    }
+
+    const created = await BlogCategory.create({
+      name: String(name).trim(),
+      slug,
+      description: description ? String(description).trim() : '',
+    });
+
+    return res.status(201).json({ success: true, data: created });
+  } catch (error: any) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 export const createBlogPost = async (req: AuthRequest, res: Response) => {
   try {
     const validated = createBlogPostSchema.parse(req.body);
@@ -132,6 +180,7 @@ export const createBlogPost = async (req: AuthRequest, res: Response) => {
 
     const newPost = await BlogPost.create({
       ...validated,
+      mediaType: validated.mediaType || 'IMAGE',
       slug,
       authorId: req.user?.userId,
       publishedAt: validated.status === 'PUBLISHED' ? new Date() : undefined,
@@ -145,7 +194,12 @@ export const createBlogPost = async (req: AuthRequest, res: Response) => {
 
 export const updateBlogPost = async (req: Request, res: Response) => {
   try {
-    const updated = await BlogPost.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const payload = req.body || {};
+    if (payload.mediaType && !['IMAGE', 'VIDEO', 'PDF'].includes(payload.mediaType)) {
+      return res.status(400).json({ success: false, message: 'Type de média invalide.' });
+    }
+
+    const updated = await BlogPost.findByIdAndUpdate(req.params.id, payload, { new: true });
     if (!updated) return res.status(404).json({ success: false, message: 'Article introuvable.' });
     return res.json({ success: true, data: updated });
   } catch (error: any) {

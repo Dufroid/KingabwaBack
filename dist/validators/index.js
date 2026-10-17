@@ -70,6 +70,7 @@ exports.createBlogPostSchema = zod_1.z.object({
     excerpt: zod_1.z.string().min(10),
     content: zod_1.z.string().min(20),
     featuredImage: uploadAssetSchema,
+    mediaType: zod_1.z.enum(['IMAGE', 'VIDEO', 'PDF']).optional().default('IMAGE'),
     categoryId: zod_1.z.string().min(1),
     tags: zod_1.z.array(zod_1.z.string()).optional(),
     status: zod_1.z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),

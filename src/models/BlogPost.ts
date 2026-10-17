@@ -6,6 +6,7 @@ export interface IBlogPost extends Document {
   excerpt: string;
   content: string;
   featuredImage: string;
+  mediaType: 'IMAGE' | 'VIDEO' | 'PDF';
   authorId: mongoose.Types.ObjectId;
   categoryId: mongoose.Types.ObjectId;
   tags: string[];
@@ -25,6 +26,7 @@ const BlogPostSchema: Schema = new Schema(
     excerpt: { type: String, required: true },
     content: { type: String, required: true },
     featuredImage: { type: String, required: true },
+    mediaType: { type: String, enum: ['IMAGE', 'VIDEO', 'PDF'], default: 'IMAGE' },
     authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     categoryId: { type: Schema.Types.ObjectId, ref: 'BlogCategory', required: true },
     tags: [{ type: String }],

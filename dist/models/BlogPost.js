@@ -41,6 +41,7 @@ const BlogPostSchema = new mongoose_1.Schema({
     excerpt: { type: String, required: true },
     content: { type: String, required: true },
     featuredImage: { type: String, required: true },
+    mediaType: { type: String, enum: ['IMAGE', 'VIDEO', 'PDF'], default: 'IMAGE' },
     authorId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
     categoryId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'BlogCategory', required: true },
     tags: [{ type: String }],

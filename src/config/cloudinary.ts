@@ -44,7 +44,7 @@ export const buildLocalUploadResponse = (file: Express.Multer.File, folderName: 
   };
 };
 
-export const uploadToCloudinary = async (file: Express.Multer.File, folderName: string, resourceType: 'image' | 'video' = 'image') => {
+export const uploadToCloudinary = async (file: Express.Multer.File, folderName: string, resourceType: 'image' | 'video' | 'raw' = 'image') => {
   if (!isCloudinaryConfigured) {
     throw new Error('Cloudinary n\'est pas configuré. Vérifie CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY et CLOUDINARY_API_SECRET.');
   }
