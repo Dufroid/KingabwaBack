@@ -40,7 +40,7 @@ const PaymentTransactionSchema = new mongoose_1.Schema({
     voteId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Vote', default: null },
     provider: {
         type: String,
-        enum: ['AIRTEL_MONEY', 'ORANGE_MONEY', 'MOCK'],
+        enum: ['MPESA', 'ORANGE_MONEY', 'AIRTEL_MONEY', 'AFRIMONEY', 'MOCK'],
         required: true,
     },
     amount: { type: Number, required: true },

@@ -1,4 +1,4 @@
-export type MobileMoneyProvider = 'AIRTEL_MONEY' | 'ORANGE_MONEY' | 'MOCK';
+export type MobileMoneyProvider = 'MPESA' | 'ORANGE_MONEY' | 'AIRTEL_MONEY' | 'AFRIMONEY' | 'MOCK';
 
 export interface InitiateMobileMoneyArgs {
   provider: MobileMoneyProvider;
@@ -22,17 +22,21 @@ export interface MobileMoneyInitResponse {
 }
 
 const normalizeProvider = (provider?: string): MobileMoneyProvider => {
-  const value = (provider || process.env.MOBILE_MONEY_PROVIDER || 'MOCK').toUpperCase();
+  const value = (provider || process.env.MOBILE_MONEY_PROVIDER || 'MPESA').toUpperCase();
+  if (value === 'MPESA' || value === 'M_PESA') return 'MPESA';
   if (value === 'AIRTEL' || value === 'AIRTEL_MONEY') return 'AIRTEL_MONEY';
   if (value === 'ORANGE' || value === 'ORANGE_MONEY') return 'ORANGE_MONEY';
+  if (value === 'AFRIMONEY' || value === 'AFRI_MONEY') return 'AFRIMONEY';
   return 'MOCK';
 };
 
 const generateOtpCode = () => String(Math.floor(100000 + Math.random() * 900000));
 
 const getProviderLabel = (provider: MobileMoneyProvider) => {
+  if (provider === 'MPESA') return 'M-Pesa';
   if (provider === 'AIRTEL_MONEY') return 'Airtel Money';
   if (provider === 'ORANGE_MONEY') return 'Orange Money';
+  if (provider === 'AFRIMONEY') return 'AfriMoney';
   return 'Simulation mobile money';
 };
 
@@ -45,6 +49,9 @@ export const initiateMobileMoneyPayment = async ({
   const resolvedProvider = normalizeProvider(provider);
   const providerLabel = getProviderLabel(resolvedProvider);
   const otpCode = generateOtpCode();
+  const gatewayProvider = process.env.PAYMENT_GATEWAY_PROVIDER || 'MFS_AFRICA';
+  const gatewayUrl = process.env.PAYMENT_GATEWAY_BASE_URL || '';
+  const gatewayApiKey = process.env.PAYMENT_GATEWAY_API_KEY || '';
 
   if (resolvedProvider === 'MOCK') {
    return {
@@ -62,13 +69,27 @@ export const initiateMobileMoneyPayment = async ({
    };
   }
 
-  const apiUrl = resolvedProvider === 'AIRTEL_MONEY'
-   ? process.env.AIRTEL_MONEY_API_URL
-   : process.env.ORANGE_MONEY_API_URL;
+  const apiUrl =
+   resolvedProvider === 'MPESA'
+     ? process.env.MPESA_API_URL || gatewayUrl
+     : resolvedProvider === 'AIRTEL_MONEY'
+       ? process.env.AIRTEL_MONEY_API_URL || gatewayUrl
+       : resolvedProvider === 'ORANGE_MONEY'
+         ? process.env.ORANGE_MONEY_API_URL || gatewayUrl
+         : resolvedProvider === 'AFRIMONEY'
+           ? process.env.AFRIMONEY_API_URL || gatewayUrl
+           : gatewayUrl;
 
-  const apiKey = resolvedProvider === 'AIRTEL_MONEY'
-   ? process.env.AIRTEL_MONEY_API_KEY
-   : process.env.ORANGE_MONEY_API_KEY;
+  const apiKey =
+   resolvedProvider === 'MPESA'
+     ? process.env.MPESA_API_KEY || gatewayApiKey
+     : resolvedProvider === 'AIRTEL_MONEY'
+       ? process.env.AIRTEL_MONEY_API_KEY || gatewayApiKey
+       : resolvedProvider === 'ORANGE_MONEY'
+         ? process.env.ORANGE_MONEY_API_KEY || gatewayApiKey
+         : resolvedProvider === 'AFRIMONEY'
+           ? process.env.AFRIMONEY_API_KEY || gatewayApiKey
+           : gatewayApiKey;
 
   if (!apiUrl || !apiKey) {
    return {
@@ -79,7 +100,7 @@ export const initiateMobileMoneyPayment = async ({
      reference,
      externalTransactionId: `sim-${Date.now()}`,
      status: 'PENDING',
-     message: `Simulation locale activée pour ${providerLabel}. Un code de confirmation a été généré pour tester le flux de paiement RDC.`,
+     message: `Simulation locale activée pour ${providerLabel}. Un code de confirmation a été généré pour tester le flux de paiement via la passerelle ${gatewayProvider}.`,
      otpCode,
      providerLabel,
      expiresInSeconds: 180,

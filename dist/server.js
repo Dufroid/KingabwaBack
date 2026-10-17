@@ -23,6 +23,7 @@ const winner_routes_js_1 = __importDefault(require("./routes/winner.routes.js"))
 const gallery_routes_js_1 = __importDefault(require("./routes/gallery.routes.js"));
 const admin_routes_js_1 = __importDefault(require("./routes/admin.routes.js"));
 const payment_routes_js_1 = __importDefault(require("./routes/payment.routes.js"));
+const public_routes_js_1 = __importDefault(require("./routes/public.routes.js"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
@@ -91,6 +92,7 @@ app.use('/api/proposals', proposal_routes_js_1.default);
 app.use('/api/hall-of-fame', winner_routes_js_1.default);
 app.use('/api/gallery', gallery_routes_js_1.default);
 app.use('/api/payments', payment_routes_js_1.default);
+app.use('/api/public', public_routes_js_1.default);
 app.use('/api/admin', admin_routes_js_1.default);
 // Global Error Handler
 app.use(errorHandler_js_1.errorHandler);

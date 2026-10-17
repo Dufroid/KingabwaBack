@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'CANCELLED';
-export type MobileMoneyProvider = 'AIRTEL_MONEY' | 'ORANGE_MONEY' | 'MOCK';
+export type MobileMoneyProvider = 'MPESA' | 'ORANGE_MONEY' | 'AIRTEL_MONEY' | 'AFRIMONEY' | 'MOCK';
 
 export interface IPaymentTransaction extends Document {
   userId: mongoose.Types.ObjectId;
@@ -32,7 +32,7 @@ const PaymentTransactionSchema: Schema = new Schema(
     voteId: { type: Schema.Types.ObjectId, ref: 'Vote', default: null },
     provider: {
       type: String,
-      enum: ['AIRTEL_MONEY', 'ORANGE_MONEY', 'MOCK'],
+      enum: ['MPESA', 'ORANGE_MONEY', 'AIRTEL_MONEY', 'AFRIMONEY', 'MOCK'],
       required: true,
     },
     amount: { type: Number, required: true },

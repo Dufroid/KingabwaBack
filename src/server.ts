@@ -19,6 +19,7 @@ import winnerRoutes from './routes/winner.routes.js';
 import galleryRoutes from './routes/gallery.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
+import publicRoutes from './routes/public.routes.js';
 
 dotenv.config();
 
@@ -100,6 +101,7 @@ app.use('/api/proposals', proposalRoutes);
 app.use('/api/hall-of-fame', winnerRoutes);
 app.use('/api/gallery', galleryRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/public', publicRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Global Error Handler
