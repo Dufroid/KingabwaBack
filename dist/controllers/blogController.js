@@ -1,9 +1,45 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteBlogPost = exports.updateBlogPost = exports.createBlogPost = exports.getBlogCategories = exports.getBlogPostBySlug = exports.getBlogPosts = void 0;
+exports.deleteBlogPost = exports.updateBlogPost = exports.createBlogPost = exports.getBlogCategories = exports.getBlogPostBySlug = exports.getBlogPosts = exports.handleBlogMediaUpload = exports.uploadBlogMedia = void 0;
+const multer_1 = __importDefault(require("multer"));
 const BlogPost_js_1 = require("../models/BlogPost.js");
 const BlogCategory_js_1 = require("../models/BlogCategory.js");
 const index_js_1 = require("../validators/index.js");
+const cloudinary_js_1 = require("../config/cloudinary.js");
+exports.uploadBlogMedia = (0, multer_1.default)({
+    storage: multer_1.default.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }, // allow up to 50MB for videos
+    fileFilter: (_req, file, cb) => {
+        if (!file.mimetype.startsWith('image/') && !file.mimetype.startsWith('video/')) {
+            cb(new Error('Seules les images et vidéos sont autorisées.'));
+            return;
+        }
+        cb(null, true);
+    },
+}).single('file');
+const handleBlogMediaUpload = async (req, res) => {
+    try {
+        const file = req.file;
+        if (!file)
+            return res.status(400).json({ success: false, message: 'Aucun fichier fourni.' });
+        let uploadResult;
+        const resourceType = file.mimetype.startsWith('video/') ? 'video' : 'image';
+        if (cloudinary_js_1.isCloudinaryConfigured) {
+            uploadResult = await (0, cloudinary_js_1.uploadToCloudinary)(file, 'kingabwa/blog', resourceType);
+        }
+        else {
+            uploadResult = (0, cloudinary_js_1.buildLocalUploadResponse)(file, resourceType === 'video' ? 'blog_videos' : 'blog_media');
+        }
+        return res.json({ success: true, data: { url: uploadResult.url, fileName: uploadResult.fileName || uploadResult.publicId } });
+    }
+    catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.handleBlogMediaUpload = handleBlogMediaUpload;
 const getBlogPosts = async (req, res) => {
     try {
         const { category, search, tag, page = 1, limit = 10, all } = req.query;

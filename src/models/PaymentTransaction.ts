@@ -18,6 +18,9 @@ export interface IPaymentTransaction extends Document {
     categoryId?: string;
     nomineeId?: string;
     otpCode?: string;
+    increments?: number;
+    amountCdf?: number;
+    providerLabel?: string;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -47,6 +50,9 @@ const PaymentTransactionSchema: Schema = new Schema(
       categoryId: { type: String, default: '' },
       nomineeId: { type: String, default: '' },
       otpCode: { type: String, default: '' },
+      increments: { type: Number, default: 0 },
+      amountCdf: { type: Number, default: 0 },
+      providerLabel: { type: String, default: '' },
     },
   },
   { timestamps: true }

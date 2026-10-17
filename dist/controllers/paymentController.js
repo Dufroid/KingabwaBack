@@ -14,9 +14,15 @@ const initiatePaidVotePayment = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Non autorisé.' });
         }
         const { editionId, categoryId, nomineeId, phone, provider } = req.body;
+        let increments = Number(req.body.increments ?? req.body.amountIncrements ?? 0);
+        if (!Number.isInteger(increments) || increments <= 0)
+            increments = 10; // default to 10 if not provided
         const selectedProvider = provider || process.env.MOBILE_MONEY_PROVIDER || 'MOCK';
         if (!editionId || !categoryId || !nomineeId || !phone) {
             return res.status(400).json({ success: false, message: 'Données de paiement incomplètes.' });
+        }
+        if (increments < 1 || increments > 10) {
+            return res.status(400).json({ success: false, message: 'Les incréments doivent être entre 1 et 10.' });
         }
         const edition = await AwardEdition_js_1.AwardEdition.findById(editionId);
         if (!edition || edition.status !== 'OPEN') {
@@ -30,33 +36,38 @@ const initiatePaidVotePayment = async (req, res) => {
         if (!nominee) {
             return res.status(404).json({ success: false, message: 'Candidat introuvable.' });
         }
-        const freeVoteExists = await Vote_js_1.Vote.findOne({
+        // Free vote should NOT block paid votes. Remove any blocking logic here.
+        // Check if user already made a PAID transaction for this nominee/category/edition
+        const previousPaid = await PaymentTransaction_js_1.PaymentTransaction.findOne({
             userId,
-            categoryId,
-            editionId,
-            voteType: 'FREE',
-            status: { $ne: 'CANCELLED' },
+            'metadata.nomineeId': nomineeId,
+            'metadata.categoryId': categoryId,
+            'metadata.editionId': editionId,
+            status: 'PAID',
         });
-        if (freeVoteExists) {
+        // Enforce first paid transaction must be exactly 10 increments
+        if (!previousPaid && increments !== 10) {
             return res.status(400).json({
                 success: false,
-                message: 'Vous avez déjà utilisé votre vote gratuit dans cette catégorie pour cette édition.',
+                message: 'La première transaction payante pour ce candidat doit être de 10 incréments (5000 FC).',
             });
         }
+        const amount = increments * 500; // price per increment: 500 FC
         const reference = `KA-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
         const payment = await (0, mobileMoney_js_1.initiateMobileMoneyPayment)({
             provider: selectedProvider,
-            amount: 10,
+            amount,
             phone,
             reference,
         });
+        // create a PAID vote record (status PENDING if payment not yet confirmed)
         const vote = await Vote_js_1.Vote.create({
             userId,
             editionId,
             categoryId,
             nomineeId,
             voteType: 'PAID',
-            points: 10,
+            points: increments,
             status: payment.status === 'PAID' ? 'CONFIRMED' : 'PENDING',
             paymentReference: reference,
             confirmedAt: payment.status === 'PAID' ? new Date() : null,
@@ -76,16 +87,19 @@ const initiatePaidVotePayment = async (req, res) => {
                 categoryId,
                 nomineeId,
                 otpCode: payment.otpCode || '',
+                increments,
+                amountCdf: payment.amount,
+                providerLabel: payment.providerLabel || selectedProvider,
             },
         });
         if (payment.status === 'PAID') {
-            await Nominee_js_1.Nominee.findByIdAndUpdate(nomineeId, { $inc: { voteCount: 10 } });
+            await Nominee_js_1.Nominee.findByIdAndUpdate(nomineeId, { $inc: { voteCount: increments } });
         }
         return res.json({
             success: true,
             message: payment.status === 'PAID'
-                ? `Paiement validé. ${nominee.fullName} reçoit 10 points.`
-                : 'Le paiement mobile money a bien été initié. Confirmez votre transaction pour valider le vote.',
+                ? `Paiement validé. ${nominee.fullName} reçoit ${increments} point(s).`
+                : `Le paiement mobile money a bien été initié pour ${amount} FC. Confirmez votre transaction pour valider le vote.`,
             payment,
             vote,
         });
@@ -128,8 +142,10 @@ const confirmPaidVoteWebhook = async (req, res) => {
                 vote.status = 'CONFIRMED';
                 vote.confirmedAt = new Date();
                 await vote.save();
+                // increment nominee by the vote points
                 await Nominee_js_1.Nominee.findByIdAndUpdate(vote.nomineeId, { $inc: { voteCount: vote.points } });
             }
+            // Mark payment PAID
             payment.status = 'PAID';
             if (payment.metadata) {
                 payment.metadata.otpCode = payment.metadata.otpCode || submittedCode || '';

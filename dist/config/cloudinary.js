@@ -40,7 +40,7 @@ const buildLocalUploadResponse = (file, folderName) => {
     };
 };
 exports.buildLocalUploadResponse = buildLocalUploadResponse;
-const uploadToCloudinary = async (file, folderName) => {
+const uploadToCloudinary = async (file, folderName, resourceType = 'image') => {
     if (!exports.isCloudinaryConfigured) {
         throw new Error('Cloudinary n\'est pas configuré. Vérifie CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY et CLOUDINARY_API_SECRET.');
     }
@@ -49,7 +49,7 @@ const uploadToCloudinary = async (file, folderName) => {
         cloudinary_1.v2.uploader.upload_stream({
             folder: folderName,
             public_id: publicId,
-            resource_type: 'image',
+            resource_type: resourceType,
         }, (error, result) => {
             if (error || !result?.secure_url) {
                 reject(error || new Error('Cloudinary upload failed'));

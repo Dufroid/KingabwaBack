@@ -11,4 +11,6 @@ router.get('/categories', blogController_js_1.getBlogCategories);
 router.post('/posts', auth_js_1.authenticateToken, (0, auth_js_1.authorizeRoles)('ADMIN', 'SUPER_ADMIN'), blogController_js_1.createBlogPost);
 router.patch('/posts/:id', auth_js_1.authenticateToken, (0, auth_js_1.authorizeRoles)('ADMIN', 'SUPER_ADMIN'), blogController_js_1.updateBlogPost);
 router.delete('/posts/:id', auth_js_1.authenticateToken, (0, auth_js_1.authorizeRoles)('ADMIN', 'SUPER_ADMIN'), blogController_js_1.deleteBlogPost);
+// Upload media for blog (images/videos)
+router.post('/upload-media', auth_js_1.authenticateToken, (0, auth_js_1.authorizeRoles)('ADMIN', 'SUPER_ADMIN'), blogController_js_1.uploadBlogMedia, blogController_js_1.handleBlogMediaUpload);
 exports.default = router;

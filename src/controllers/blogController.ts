@@ -1,8 +1,43 @@
 import { Request, Response } from 'express';
+import multer from 'multer';
 import { BlogPost } from '../models/BlogPost.js';
 import { BlogCategory } from '../models/BlogCategory.js';
 import { createBlogPostSchema } from '../validators/index.js';
 import { AuthRequest } from '../types/index.js';
+import { buildLocalUploadResponse, isCloudinaryConfigured, uploadToCloudinary } from '../config/cloudinary.js';
+
+export const uploadBlogMedia = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // allow up to 50MB for videos
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/') && !file.mimetype.startsWith('video/')) {
+      cb(new Error('Seules les images et vidéos sont autorisées.'));
+      return;
+    }
+    cb(null, true);
+  },
+}).single('file');
+
+export const handleBlogMediaUpload = async (req: Request, res: Response) => {
+  try {
+    const file = (req as any).file as Express.Multer.File | undefined;
+    if (!file) return res.status(400).json({ success: false, message: 'Aucun fichier fourni.' });
+
+    let uploadResult: { url: string; relativePath?: string; fileName?: string; publicId?: string };
+
+    const resourceType = file.mimetype.startsWith('video/') ? 'video' : 'image';
+
+    if (isCloudinaryConfigured) {
+      uploadResult = await uploadToCloudinary(file, 'kingabwa/blog', resourceType as 'image' | 'video');
+    } else {
+      uploadResult = buildLocalUploadResponse(file, resourceType === 'video' ? 'blog_videos' : 'blog_media');
+    }
+
+    return res.json({ success: true, data: { url: uploadResult.url, fileName: uploadResult.fileName || uploadResult.publicId } });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 export const getBlogPosts = async (req: Request, res: Response) => {
   try {

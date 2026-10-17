@@ -6,6 +6,8 @@ import {
   createBlogPost,
   updateBlogPost,
   deleteBlogPost,
+  uploadBlogMedia,
+  handleBlogMediaUpload,
 } from '../controllers/blogController.js';
 import { authenticateToken, authorizeRoles } from '../middlewares/auth.js';
 
@@ -19,5 +21,8 @@ router.get('/categories', getBlogCategories);
 router.post('/posts', authenticateToken, authorizeRoles('ADMIN', 'SUPER_ADMIN'), createBlogPost);
 router.patch('/posts/:id', authenticateToken, authorizeRoles('ADMIN', 'SUPER_ADMIN'), updateBlogPost);
 router.delete('/posts/:id', authenticateToken, authorizeRoles('ADMIN', 'SUPER_ADMIN'), deleteBlogPost);
+
+// Upload media for blog (images/videos)
+router.post('/upload-media', authenticateToken, authorizeRoles('ADMIN', 'SUPER_ADMIN'), uploadBlogMedia, handleBlogMediaUpload);
 
 export default router;

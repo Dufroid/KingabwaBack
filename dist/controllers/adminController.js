@@ -172,7 +172,15 @@ const getTransactions = async (req, res) => {
         const transactions = await PaymentTransaction_js_1.PaymentTransaction.find()
             .sort({ createdAt: -1 })
             .populate('userId', 'firstName lastName phone email role')
-            .populate('voteId', 'voteType points status nomineeId');
+            .populate({
+            path: 'voteId',
+            select: 'voteType points status nomineeId categoryId editionId paymentReference confirmedAt',
+            populate: [
+                { path: 'nomineeId', select: 'fullName profileImage' },
+                { path: 'categoryId', select: 'name' },
+                { path: 'editionId', select: 'name year' },
+            ],
+        });
         return res.json({
             success: true,
             count: transactions.length,
@@ -203,6 +211,11 @@ const getTransactions = async (req, res) => {
                         points: tx.voteId.points,
                         status: tx.voteId.status,
                         nomineeId: tx.voteId.nomineeId,
+                        nomineeName: tx.voteId.nomineeId?.fullName || null,
+                        categoryName: tx.voteId.categoryId?.name || null,
+                        editionName: tx.voteId.editionId?.name || null,
+                        paymentReference: tx.voteId.paymentReference,
+                        confirmedAt: tx.voteId.confirmedAt,
                     }
                     : null,
                 metadata: tx.metadata || {},

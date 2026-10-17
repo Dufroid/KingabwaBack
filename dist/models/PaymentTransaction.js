@@ -58,6 +58,9 @@ const PaymentTransactionSchema = new mongoose_1.Schema({
         categoryId: { type: String, default: '' },
         nomineeId: { type: String, default: '' },
         otpCode: { type: String, default: '' },
+        increments: { type: Number, default: 0 },
+        amountCdf: { type: Number, default: 0 },
+        providerLabel: { type: String, default: '' },
     },
 }, { timestamps: true });
 exports.PaymentTransaction = mongoose_1.default.model('PaymentTransaction', PaymentTransactionSchema);
