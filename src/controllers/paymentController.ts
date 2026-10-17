@@ -136,7 +136,8 @@ export const confirmPaidVoteWebhook = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Transaction introuvable.' });
     }
 
-    if (payment.provider === 'MOCK' || payment.metadata?.otpCode) {
+    const expectedCode = payment.metadata?.otpCode?.trim() || '';
+    if (expectedCode || payment.provider === 'MOCK') {
       if (!submittedCode) {
         return res.status(400).json({
           success: false,
@@ -144,7 +145,6 @@ export const confirmPaidVoteWebhook = async (req: Request, res: Response) => {
         });
       }
 
-      const expectedCode = payment.metadata?.otpCode || '';
       if (expectedCode && submittedCode !== expectedCode) {
         return res.status(400).json({
           success: false,
@@ -153,30 +153,56 @@ export const confirmPaidVoteWebhook = async (req: Request, res: Response) => {
       }
     }
 
-    if (status === 'PAID' || status === 'SUCCESS' || submittedCode) {
-      const confirmation = await confirmMobileMoneyPayment(reference, submittedCode || undefined);
-      const vote = await Vote.findById(payment.voteId);
-      if (vote && vote.status !== 'CONFIRMED') {
-        vote.status = 'CONFIRMED';
-        vote.confirmedAt = new Date();
-        await vote.save();
-        // increment nominee by the vote points
-        await Nominee.findByIdAndUpdate(vote.nomineeId, { $inc: { voteCount: vote.points } });
-      }
-
-      // Mark payment PAID
-      payment.status = 'PAID';
-      if (payment.metadata) {
-        payment.metadata.otpCode = payment.metadata.otpCode || submittedCode || '';
-      }
+    const confirmation = await confirmMobileMoneyPayment(reference, submittedCode || undefined);
+    if (!confirmation.success) {
+      payment.status = 'FAILED';
       await payment.save();
-
-      return res.json({ success: true, message: confirmation.message, payment });
+      return res.status(400).json({ success: false, message: confirmation.message, payment });
     }
 
-    payment.status = 'FAILED';
+    let vote = null;
+    if (payment.voteId) {
+      vote = await Vote.findById(payment.voteId);
+    }
+
+    if (!vote) {
+      vote = await Vote.findOne({
+        userId: payment.userId,
+        editionId: payment.metadata?.editionId,
+        categoryId: payment.metadata?.categoryId,
+        nomineeId: payment.metadata?.nomineeId,
+        voteType: 'PAID',
+        status: { $ne: 'CANCELLED' },
+      }).sort({ createdAt: -1 });
+    }
+
+    if (vote && vote.status !== 'CONFIRMED') {
+      vote.status = 'CONFIRMED';
+      vote.confirmedAt = new Date();
+      await vote.save();
+      await Nominee.findByIdAndUpdate(vote.nomineeId, { $inc: { voteCount: vote.points } });
+    }
+
+    payment.status = 'PAID';
+    if (payment.metadata) {
+      payment.metadata.otpCode = payment.metadata.otpCode || submittedCode || '';
+    }
     await payment.save();
-    return res.status(400).json({ success: false, message: 'Le paiement a échoué ou été annulé.' });
+
+    if (vote && vote.status === 'CONFIRMED') {
+      return res.json({
+        success: true,
+        message: confirmation.message || `Paiement validé. ${vote.points} point(s) ont été ajoutés au candidat.`,
+        payment,
+        vote,
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: 'La transaction a été validée mais aucun vote n’a pu être confirmé.',
+      payment,
+    });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
