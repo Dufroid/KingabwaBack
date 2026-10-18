@@ -8,14 +8,66 @@ import { AuthRequest } from '../types/index.js';
 const JWT_SECRET = process.env.JWT_SECRET || 'kingabwa_awards_secret_jwt_key_2026_super_secure';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'kingabwa_awards_refresh_secret_jwt_key_2026';
 
-const normalizePhone = (value: string = '') => value.replace(/\s+/g, '').replace(/[^\d+]/g, '');
+const normalizePhone = (value: string = '') => {
+  const cleaned = value.trim().replace(/\s+/g, '').replace(/[^\d+]/g, '');
+  if (!cleaned) return '';
+
+  const withoutPrefix = cleaned.replace(/^\+/, '');
+  const digits = withoutPrefix.replace(/\D/g, '');
+  if (!digits) return '';
+
+  if (digits.startsWith('00')) {
+    return `+${digits.slice(2)}`;
+  }
+
+  if (digits.startsWith('243')) {
+    return `+${digits}`;
+  }
+
+  if (digits.startsWith('0')) {
+    return `+243${digits.slice(1)}`;
+  }
+
+  return `+${digits}`;
+};
+
+const getPhoneLookupVariants = (value: string = '') => {
+  const raw = value.trim();
+  const cleaned = raw.replace(/\s+/g, '').replace(/[^\d+]/g, '');
+  const normalized = normalizePhone(raw);
+  const bare = normalized.replace(/^\+/, '');
+  const variants = new Set<string>([
+    raw,
+    cleaned,
+    normalized,
+    bare,
+    cleaned.replace(/^\+/, ''),
+  ]);
+
+  if (normalized.startsWith('+243') && normalized.length > 4) {
+    variants.add(normalized.replace(/^\+/, ''));
+  }
+
+  if (cleaned.startsWith('00')) {
+    variants.add(`+${cleaned.slice(2)}`);
+  }
+
+  if (cleaned.startsWith('0') && cleaned.length > 1) {
+    variants.add(`+243${cleaned.slice(1)}`);
+  }
+
+  return [...variants].filter(Boolean);
+};
 
 const findUserByIdentifier = async (identifier: string) => {
   const trimmedIdentifier = identifier.trim();
-  const normalizedPhone = normalizePhone(trimmedIdentifier);
+  const lookupVariants = getPhoneLookupVariants(trimmedIdentifier);
 
   return User.findOne({
-    $or: [{ phone: normalizedPhone }, { phone: trimmedIdentifier }],
+    $or: [
+      { phone: { $in: lookupVariants } },
+      { phone: { $in: lookupVariants.map((value) => value.replace(/\s+/g, '').replace(/[^\d+]/g, '')) } },
+    ],
   });
 };
 
@@ -24,7 +76,9 @@ export const register = async (req: Request, res: Response) => {
     const validatedData = registerSchema.parse(req.body);
     const normalizedPhone = normalizePhone(validatedData.phone || '');
 
-    const existingUser = await User.findOne({ phone: normalizedPhone });
+    const existingUser = await User.findOne({
+      phone: { $in: getPhoneLookupVariants(normalizedPhone) },
+    });
     if (existingUser) {
       return res.status(400).json({ success: false, message: 'Un compte avec ce numéro de téléphone existe déjà.' });
     }

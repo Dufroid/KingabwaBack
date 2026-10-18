@@ -7,15 +7,16 @@ const Category_js_1 = require("../models/Category.js");
 const router = (0, express_1.Router)();
 router.get('/stats', async (_req, res) => {
     try {
-        const [totalVoters, totalNominees, totalCategories] = await Promise.all([
-            User_js_1.User.countDocuments({ role: 'VOTER' }),
+        const [totalUsers, totalNominees, totalCategories] = await Promise.all([
+            User_js_1.User.countDocuments(),
             Nominee_js_1.Nominee.countDocuments({ status: 'ACTIVE' }),
             Category_js_1.Category.countDocuments(),
         ]);
         return res.json({
             success: true,
             data: {
-                totalVoters,
+                totalUsers,
+                totalVoters: totalUsers,
                 totalNominees,
                 totalCategories,
             },

@@ -7,8 +7,8 @@ const router = Router();
 
 router.get('/stats', async (_req, res) => {
   try {
-    const [totalVoters, totalNominees, totalCategories] = await Promise.all([
-      User.countDocuments({ role: 'VOTER' }),
+    const [totalUsers, totalNominees, totalCategories] = await Promise.all([
+      User.countDocuments(),
       Nominee.countDocuments({ status: 'ACTIVE' }),
       Category.countDocuments(),
     ]);
@@ -16,7 +16,8 @@ router.get('/stats', async (_req, res) => {
     return res.json({
       success: true,
       data: {
-        totalVoters,
+        totalUsers,
+        totalVoters: totalUsers,
         totalNominees,
         totalCategories,
       },
