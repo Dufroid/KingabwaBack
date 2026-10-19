@@ -59,9 +59,8 @@ const getPhoneLookupVariants = (value: string = '') => {
   return [...variants].filter(Boolean);
 };
 
-const findUserByIdentifier = async (identifier: string) => {
-  const trimmedIdentifier = identifier.trim();
-  const lookupVariants = getPhoneLookupVariants(trimmedIdentifier);
+const findUserByPhone = async (phone: string) => {
+  const lookupVariants = getPhoneLookupVariants(phone);
 
   return User.findOne({
     $or: [
@@ -121,6 +120,9 @@ export const register = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, message: 'Un compte avec ce numéro de téléphone existe déjà.' });
+    }
     if (error.errors) {
       return res.status(400).json({ success: false, message: error.errors[0].message });
     }
@@ -132,7 +134,7 @@ export const login = async (req: Request, res: Response) => {
   try {
     const validatedData = loginSchema.parse(req.body);
 
-    const user = await findUserByIdentifier(validatedData.identifier);
+    const user = await findUserByPhone(validatedData.phone);
     if (!user) {
       return res.status(400).json({ success: false, message: 'Identifiants invalides.' });
     }
@@ -189,7 +191,7 @@ export const refreshToken = async (req: Request, res: Response) => {
     }
 
     const newToken = jwt.sign(
-      { userId: user._id, email: user.email, role: user.role },
+      { userId: user._id, phone: user.phone, role: user.role },
       JWT_SECRET,
       { expiresIn: '1d' }
     );

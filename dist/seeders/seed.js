@@ -39,7 +39,7 @@ const seed = async () => {
     const superAdmin = await User_js_1.User.create({
         firstName: 'Glody',
         lastName: 'Kambale',
-        email: 'admin@kingabwa-awards.cd',
+        phone: '+243000000000',
         password: hashedPassword,
         role: 'SUPER_ADMIN',
         isVerified: true,
@@ -47,12 +47,12 @@ const seed = async () => {
     const demoVoter = await User_js_1.User.create({
         firstName: 'Athanase',
         lastName: 'Mukendi',
-        email: 'voter@kingabwa-awards.cd',
+        phone: '+243000000001',
         password: voterPassword,
         role: 'VOTER',
         isVerified: true,
     });
-    console.log('👤 Users seeded (Super Admin: admin@kingabwa-awards.cd / Admin@2026).');
+    console.log('👤 Users seeded (Super Admin: +243000000000 / Admin@2026 | Votant: +243000000001 / Voter@2026).');
     // 2. Create Award Edition 2026
     const edition2026 = await AwardEdition_js_1.AwardEdition.create({
         name: 'Kingabwa Awards 2026',

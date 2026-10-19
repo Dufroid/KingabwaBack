@@ -6,8 +6,8 @@ export const swaggerSpec = {
     description: 'Official API documentation for Kingabwa Awards sociocultural platform.',
   },
   paths: {
-    '/api/auth/register': { post: { summary: 'Register a new voter account' } },
-    '/api/auth/login': { post: { summary: 'Authenticate user' } },
+    '/api/auth/register': { post: { summary: 'Register a voter account (firstName, lastName, phone, password)' } },
+    '/api/auth/login': { post: { summary: 'Authenticate user with phone and password' } },
     '/api/categories': { get: { summary: 'List award categories' } },
     '/api/nominees': { get: { summary: 'List nominees' } },
     '/api/votes': { post: { summary: 'Cast vote for nominee' } },

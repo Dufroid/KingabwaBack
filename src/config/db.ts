@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import { User } from '../models/User.js';
 
 let mongoMemoryServer: MongoMemoryServer | null = null;
 
@@ -23,6 +24,13 @@ export const connectDB = async (): Promise<void> => {
       console.error('[DB] MongoMemoryServer error:', memError);
       process.exit(1);
     }
+  }
+
+  try {
+    // Removes obsolete indexes from previous schemas (e.g. unique email_1)
+    await User.syncIndexes();
+  } catch (syncError) {
+    console.warn(`[DB] User index synchronization failed: ${(syncError as Error).message}`);
   }
 };
 

@@ -171,7 +171,7 @@ export const getTransactions = async (req: Request, res: Response) => {
   try {
     const transactions = await PaymentTransaction.find()
       .sort({ createdAt: -1 })
-      .populate('userId', 'firstName lastName phone email role')
+      .populate('userId', 'firstName lastName phone role')
       .populate({
         path: 'voteId',
         select: 'voteType points status nomineeId categoryId editionId paymentReference confirmedAt',
@@ -201,7 +201,6 @@ export const getTransactions = async (req: Request, res: Response) => {
               _id: (tx.userId as any)._id,
               fullName: `${(tx.userId as any).firstName || ''} ${(tx.userId as any).lastName || ''}`.trim(),
               phone: (tx.userId as any).phone,
-              email: (tx.userId as any).email,
               role: (tx.userId as any).role,
             }
           : null,

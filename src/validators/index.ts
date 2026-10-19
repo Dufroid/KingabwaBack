@@ -16,7 +16,7 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  identifier: z.string().trim().min(8, 'Renseignez un numéro de téléphone valide'),
+  phone: z.string().trim().min(8, 'Renseignez un numéro de téléphone valide'),
   password: z.string().min(1, 'Le mot de passe est requis'),
 });
 

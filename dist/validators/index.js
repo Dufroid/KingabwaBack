@@ -16,7 +16,7 @@ exports.registerSchema = zod_1.z.object({
     password: zod_1.z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
 });
 exports.loginSchema = zod_1.z.object({
-    identifier: zod_1.z.string().trim().min(8, 'Renseignez un numéro de téléphone valide'),
+    phone: zod_1.z.string().trim().min(8, 'Renseignez un numéro de téléphone valide'),
     password: zod_1.z.string().min(1, 'Le mot de passe est requis'),
 });
 exports.castVoteSchema = zod_1.z.object({

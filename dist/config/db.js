@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.closeDB = exports.connectDB = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
 const mongodb_memory_server_1 = require("mongodb-memory-server");
+const User_js_1 = require("../models/User.js");
 let mongoMemoryServer = null;
 const connectDB = async () => {
     const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/kingabwa_awards';
@@ -28,6 +29,13 @@ const connectDB = async () => {
             console.error('[DB] MongoMemoryServer error:', memError);
             process.exit(1);
         }
+    }
+    try {
+        // Removes obsolete indexes from previous schemas (e.g. unique email_1)
+        await User_js_1.User.syncIndexes();
+    }
+    catch (syncError) {
+        console.warn(`[DB] User index synchronization failed: ${syncError.message}`);
     }
 };
 exports.connectDB = connectDB;

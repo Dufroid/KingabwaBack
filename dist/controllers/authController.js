@@ -52,9 +52,8 @@ const getPhoneLookupVariants = (value = '') => {
     }
     return [...variants].filter(Boolean);
 };
-const findUserByIdentifier = async (identifier) => {
-    const trimmedIdentifier = identifier.trim();
-    const lookupVariants = getPhoneLookupVariants(trimmedIdentifier);
+const findUserByPhone = async (phone) => {
+    const lookupVariants = getPhoneLookupVariants(phone);
     return User_js_1.User.findOne({
         $or: [
             { phone: { $in: lookupVariants } },
@@ -99,6 +98,9 @@ const register = async (req, res) => {
         });
     }
     catch (error) {
+        if (error.code === 11000) {
+            return res.status(400).json({ success: false, message: 'Un compte avec ce numéro de téléphone existe déjà.' });
+        }
         if (error.errors) {
             return res.status(400).json({ success: false, message: error.errors[0].message });
         }
@@ -109,7 +111,7 @@ exports.register = register;
 const login = async (req, res) => {
     try {
         const validatedData = index_js_1.loginSchema.parse(req.body);
-        const user = await findUserByIdentifier(validatedData.identifier);
+        const user = await findUserByPhone(validatedData.phone);
         if (!user) {
             return res.status(400).json({ success: false, message: 'Identifiants invalides.' });
         }
@@ -152,7 +154,7 @@ const refreshToken = async (req, res) => {
         if (!user) {
             return res.status(404).json({ success: false, message: 'Utilisateur non trouvé.' });
         }
-        const newToken = jsonwebtoken_1.default.sign({ userId: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
+        const newToken = jsonwebtoken_1.default.sign({ userId: user._id, phone: user.phone, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
         return res.json({ success: true, token: newToken });
     }
     catch (error) {
