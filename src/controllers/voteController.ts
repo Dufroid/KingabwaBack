@@ -6,8 +6,6 @@ import { Nominee } from '../models/Nominee.js';
 import { Category } from '../models/Category.js';
 import { castVoteSchema } from '../validators/index.js';
 
-const getVotePoints = (voteType: 'FREE' | 'PAID') => voteType === 'FREE' ? 1 : 10;
-
 export const castVote = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
@@ -15,7 +13,14 @@ export const castVote = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ success: false, message: 'Non autorisé.' });
     }
 
-    const { editionId, categoryId, nomineeId, voteType, paymentReference } = castVoteSchema.parse(req.body);
+    const { editionId, categoryId, nomineeId, voteType } = castVoteSchema.parse(req.body);
+
+    if (voteType !== 'FREE') {
+      return res.status(400).json({
+        success: false,
+        message: 'Les votes payants doivent être initiés via le paiement Mobile Money.',
+      });
+    }
 
     const edition = await AwardEdition.findById(editionId);
     if (!edition) {
@@ -42,47 +47,39 @@ export const castVote = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ success: false, message: 'Candidat valide introuvable.' });
     }
 
-    if (voteType === 'FREE') {
-      const existingFreeVote = await Vote.findOne({
-        userId,
-        categoryId,
-        editionId,
-        voteType: 'FREE',
-        status: { $ne: 'CANCELLED' },
+    const existingFreeVote = await Vote.findOne({
+      userId,
+      categoryId,
+      editionId,
+      voteType: 'FREE',
+      status: { $ne: 'CANCELLED' },
+    });
+
+    if (existingFreeVote) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vous avez déjà utilisé votre vote gratuit dans cette catégorie pour cette édition.',
       });
-
-      if (existingFreeVote) {
-        return res.status(400).json({
-          success: false,
-          message: 'Vous avez déjà utilisé votre vote gratuit dans cette catégorie pour cette édition.',
-        });
-      }
     }
-
-    const points = getVotePoints(voteType);
-    const status = voteType === 'FREE' ? 'CONFIRMED' : 'PENDING';
 
     const vote = await Vote.create({
       userId,
       editionId,
       categoryId,
       nomineeId,
-      voteType,
-      points,
-      status,
-      paymentReference: paymentReference || '',
-      confirmedAt: status === 'CONFIRMED' ? new Date() : null,
+      voteType: 'FREE',
+      points: 1,
+      status: 'CONFIRMED',
+      confirmedAt: new Date(),
     });
 
-    if (status === 'CONFIRMED') {
-      await Nominee.findByIdAndUpdate(nomineeId, { $inc: { voteCount: points } });
-    }
+    await Nominee.findByIdAndUpdate(nomineeId, { $inc: { voteCount: 1 } });
 
-    const message = voteType === 'FREE'
-      ? `Votre vote gratuit en faveur de ${nominee.fullName} a été enregistré.`
-      : `Votre vote payant a été enregistré et sera comptabilisé après confirmation du paiement.`;
-
-    return res.status(201).json({ success: true, message, vote });
+    return res.status(201).json({
+      success: true,
+      message: `Votre vote gratuit en faveur de ${nominee.fullName} a été enregistré.`,
+      vote,
+    });
   } catch (error: any) {
     if (error.code === 11000) {
       return res.status(400).json({
@@ -90,44 +87,6 @@ export const castVote = async (req: AuthRequest, res: Response) => {
         message: 'Un vote identique a déjà été enregistré pour cette combinaison.',
       });
     }
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const confirmPaidVote = async (req: AuthRequest, res: Response) => {
-  try {
-    const { voteId } = req.params;
-
-    const vote = await Vote.findById(voteId);
-    if (!vote) {
-      return res.status(404).json({ success: false, message: 'Vote introuvable.' });
-    }
-
-    if (vote.voteType !== 'PAID') {
-      return res.status(400).json({ success: false, message: 'Cette action est réservée aux votes payants.' });
-    }
-
-    if (vote.status === 'CONFIRMED') {
-      return res.status(400).json({ success: false, message: 'Ce vote a déjà été confirmé.' });
-    }
-
-    const nominee = await Nominee.findById(vote.nomineeId);
-    if (!nominee) {
-      return res.status(404).json({ success: false, message: 'Candidat associé introuvable.' });
-    }
-
-    vote.status = 'CONFIRMED';
-    vote.confirmedAt = new Date();
-    await vote.save();
-
-    await Nominee.findByIdAndUpdate(vote.nomineeId, { $inc: { voteCount: vote.points } });
-
-    return res.json({
-      success: true,
-      message: `Paiement validé. ${vote.points} points ont été ajoutés à ${nominee.fullName}.`,
-      vote,
-    });
-  } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -149,15 +108,55 @@ export const getMyVotes = async (req: AuthRequest, res: Response) => {
 
 export const getVoteStatistics = async (req: AuthRequest, res: Response) => {
   try {
-    const totalVotes = await Vote.countDocuments({ status: 'CONFIRMED' });
+    const confirmedVotes = await Vote.aggregate([
+      { $match: { status: 'CONFIRMED', voteType: { $in: ['FREE', 'PAID'] } } },
+      {
+        $group: {
+          _id: '$nomineeId',
+          voteCount: { $sum: { $ifNull: ['$points', 1] } },
+        },
+      },
+      {
+        $lookup: {
+          from: 'nominees',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'nominee',
+        },
+      },
+      { $unwind: '$nominee' },
+      { $match: { 'nominee.status': 'ACTIVE' } },
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'nominee.categoryId',
+          foreignField: '_id',
+          as: 'category',
+        },
+      },
+      { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
+      { $sort: { voteCount: -1 } },
+      {
+        $project: {
+          _id: '$nominee._id',
+          fullName: '$nominee.fullName',
+          profileImage: '$nominee.profileImage',
+          slug: '$nominee.slug',
+          voteCount: 1,
+          categoryId: { _id: '$category._id', name: '$category.name' },
+        },
+      },
+    ]);
+
+    const totalVotes = confirmedVotes.reduce((sum, row) => sum + row.voteCount, 0);
 
     const categoryStats = await Vote.aggregate([
-      { $match: { status: 'CONFIRMED' } },
+      { $match: { status: 'CONFIRMED', voteType: { $in: ['FREE', 'PAID'] } } },
       {
         $group: {
           _id: '$categoryId',
           count: { $sum: 1 },
-          totalPoints: { $sum: '$points' },
+          totalPoints: { $sum: { $ifNull: ['$points', 1] } },
         },
       },
       {
@@ -179,16 +178,11 @@ export const getVoteStatistics = async (req: AuthRequest, res: Response) => {
       },
     ]);
 
-    const topNominees = await Nominee.find({ status: 'ACTIVE' })
-      .sort({ voteCount: -1 })
-      .limit(5)
-      .populate('categoryId', 'name');
-
     return res.json({
       success: true,
       totalVotes,
       categoryStats,
-      topNominees,
+      topNominees: confirmedVotes.slice(0, 5),
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });

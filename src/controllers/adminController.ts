@@ -8,6 +8,7 @@ import { BlogPost } from '../models/BlogPost.js';
 import { NominationProposal } from '../models/NominationProposal.js';
 import { AwardEdition } from '../models/AwardEdition.js';
 import { PaymentTransaction } from '../models/PaymentTransaction.js';
+import { AuthRequest } from '../types/index.js';
 import { buildLocalUploadResponse, isCloudinaryConfigured, uploadToCloudinary } from '../config/cloudinary.js';
 
 export const uploadEditionImage = multer({
@@ -220,6 +221,116 @@ export const getTransactions = async (req: Request, res: Response) => {
           : null,
         metadata: tx.metadata || {},
       })),
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const confirmVoteFromTransaction = async (payment: any) => {
+  let vote = payment.voteId ? await Vote.findById(payment.voteId) : null;
+
+  if (!vote) {
+    vote = await Vote.findOne({
+      userId: payment.userId,
+      editionId: payment.metadata?.editionId,
+      categoryId: payment.metadata?.categoryId,
+      nomineeId: payment.metadata?.nomineeId,
+      voteType: 'PAID',
+      status: 'PENDING',
+    }).sort({ createdAt: -1 });
+  }
+
+  if (!vote) return null;
+
+  const confirmedVote = await Vote.findOneAndUpdate(
+    { _id: vote._id, status: 'PENDING' },
+    { $set: { status: 'CONFIRMED', confirmedAt: new Date() } },
+    { new: true }
+  );
+
+  if (!confirmedVote) return null;
+
+  const nominee = await Nominee.findByIdAndUpdate(
+    confirmedVote.nomineeId,
+    { $inc: { voteCount: confirmedVote.points } },
+    { new: true }
+  );
+
+  return { vote: confirmedVote, nominee };
+};
+
+export const validateTransaction = async (req: AuthRequest, res: Response) => {
+  try {
+    const payment = await PaymentTransaction.findOneAndUpdate(
+      { _id: req.params.id, status: 'PENDING' },
+      {
+        $set: {
+          status: 'PAID',
+          'metadata.validatedBy': req.user?.userId || '',
+          'metadata.validatedAt': new Date(),
+        },
+      },
+      { new: true }
+    );
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Transaction en attente introuvable ou déjà traitée.',
+      });
+    }
+
+    const confirmation = await confirmVoteFromTransaction(payment);
+
+    return res.json({
+      success: true,
+      message: confirmation
+        ? `Paiement validé. ${confirmation.vote.points} voix ont été ajoutées à ${confirmation.nominee?.fullName || 'ce candidat'}.`
+        : 'Paiement marqué comme validé, mais aucun vote en attente n’a pu être confirmé.',
+      payment,
+      vote: confirmation?.vote || null,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const rejectTransaction = async (req: AuthRequest, res: Response) => {
+  try {
+    const reason = (req.body?.reason || '').toString().trim();
+
+    const payment = await PaymentTransaction.findOneAndUpdate(
+      { _id: req.params.id, status: 'PENDING' },
+      {
+        $set: {
+          status: 'FAILED',
+          'metadata.rejectedBy': req.user?.userId || '',
+          'metadata.rejectedAt': new Date(),
+          'metadata.rejectionReason': reason,
+        },
+      },
+      { new: true }
+    );
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Transaction en attente introuvable ou déjà traitée.',
+      });
+    }
+
+    if (payment.voteId) {
+      await Vote.findOneAndUpdate(
+        { _id: payment.voteId, status: 'PENDING' },
+        { $set: { status: 'CANCELLED' } }
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: 'Paiement rejeté. Le vote associé a été annulé.',
+      payment,
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getTransactions = exports.updateEdition = exports.createEdition = exports.getEditions = exports.updateUserRole = exports.getUsers = exports.getDashboardMetrics = exports.handleEditionImageUpload = exports.uploadEditionImage = void 0;
+exports.rejectTransaction = exports.validateTransaction = exports.getTransactions = exports.updateEdition = exports.createEdition = exports.getEditions = exports.updateUserRole = exports.getUsers = exports.getDashboardMetrics = exports.handleEditionImageUpload = exports.uploadEditionImage = void 0;
 const multer_1 = __importDefault(require("multer"));
 const User_js_1 = require("../models/User.js");
 const Vote_js_1 = require("../models/Vote.js");
@@ -226,3 +226,84 @@ const getTransactions = async (req, res) => {
     }
 };
 exports.getTransactions = getTransactions;
+const confirmVoteFromTransaction = async (payment) => {
+    let vote = payment.voteId ? await Vote_js_1.Vote.findById(payment.voteId) : null;
+    if (!vote) {
+        vote = await Vote_js_1.Vote.findOne({
+            userId: payment.userId,
+            editionId: payment.metadata?.editionId,
+            categoryId: payment.metadata?.categoryId,
+            nomineeId: payment.metadata?.nomineeId,
+            voteType: 'PAID',
+            status: 'PENDING',
+        }).sort({ createdAt: -1 });
+    }
+    if (!vote)
+        return null;
+    const confirmedVote = await Vote_js_1.Vote.findOneAndUpdate({ _id: vote._id, status: 'PENDING' }, { $set: { status: 'CONFIRMED', confirmedAt: new Date() } }, { new: true });
+    if (!confirmedVote)
+        return null;
+    const nominee = await Nominee_js_1.Nominee.findByIdAndUpdate(confirmedVote.nomineeId, { $inc: { voteCount: confirmedVote.points } }, { new: true });
+    return { vote: confirmedVote, nominee };
+};
+const validateTransaction = async (req, res) => {
+    try {
+        const payment = await PaymentTransaction_js_1.PaymentTransaction.findOneAndUpdate({ _id: req.params.id, status: 'PENDING' }, {
+            $set: {
+                status: 'PAID',
+                'metadata.validatedBy': req.user?.userId || '',
+                'metadata.validatedAt': new Date(),
+            },
+        }, { new: true });
+        if (!payment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Transaction en attente introuvable ou déjà traitée.',
+            });
+        }
+        const confirmation = await confirmVoteFromTransaction(payment);
+        return res.json({
+            success: true,
+            message: confirmation
+                ? `Paiement validé. ${confirmation.vote.points} voix ont été ajoutées à ${confirmation.nominee?.fullName || 'ce candidat'}.`
+                : 'Paiement marqué comme validé, mais aucun vote en attente n’a pu être confirmé.',
+            payment,
+            vote: confirmation?.vote || null,
+        });
+    }
+    catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.validateTransaction = validateTransaction;
+const rejectTransaction = async (req, res) => {
+    try {
+        const reason = (req.body?.reason || '').toString().trim();
+        const payment = await PaymentTransaction_js_1.PaymentTransaction.findOneAndUpdate({ _id: req.params.id, status: 'PENDING' }, {
+            $set: {
+                status: 'FAILED',
+                'metadata.rejectedBy': req.user?.userId || '',
+                'metadata.rejectedAt': new Date(),
+                'metadata.rejectionReason': reason,
+            },
+        }, { new: true });
+        if (!payment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Transaction en attente introuvable ou déjà traitée.',
+            });
+        }
+        if (payment.voteId) {
+            await Vote_js_1.Vote.findOneAndUpdate({ _id: payment.voteId, status: 'PENDING' }, { $set: { status: 'CANCELLED' } });
+        }
+        return res.json({
+            success: true,
+            message: 'Paiement rejeté. Le vote associé a été annulé.',
+            payment,
+        });
+    }
+    catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.rejectTransaction = rejectTransaction;

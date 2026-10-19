@@ -46,6 +46,6 @@ const VoteSchema = new mongoose_1.Schema({
     paymentReference: { type: String, default: '' },
     confirmedAt: { type: Date, default: null },
 }, { timestamps: { createdAt: true, updatedAt: false } });
-// Free votes remain unique per user/category/edition. Paid votes are allowed as separate payment-confirmed increments.
+// Free-vote uniqueness is enforced in the controller; paid votes create one record per validated payment.
 VoteSchema.index({ userId: 1, categoryId: 1, editionId: 1, voteType: 1 }, { unique: false });
 exports.Vote = mongoose_1.default.model('Vote', VoteSchema);

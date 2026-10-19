@@ -6,7 +6,6 @@ const auth_js_1 = require("../middlewares/auth.js");
 const rateLimiter_js_1 = require("../middlewares/rateLimiter.js");
 const router = (0, express_1.Router)();
 router.post('/', auth_js_1.authenticateToken, rateLimiter_js_1.voteRateLimiter, voteController_js_1.castVote);
-router.patch('/:voteId/confirm-payment', auth_js_1.authenticateToken, (0, auth_js_1.authorizeRoles)('ADMIN', 'SUPER_ADMIN'), voteController_js_1.confirmPaidVote);
 router.get('/my-votes', auth_js_1.authenticateToken, voteController_js_1.getMyVotes);
 router.get('/statistics', auth_js_1.authenticateToken, (0, auth_js_1.authorizeRoles)('ADMIN', 'SUPER_ADMIN'), voteController_js_1.getVoteStatistics);
 exports.default = router;

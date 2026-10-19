@@ -7,6 +7,7 @@ exports.closeDB = exports.connectDB = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
 const mongodb_memory_server_1 = require("mongodb-memory-server");
 const User_js_1 = require("../models/User.js");
+const Vote_js_1 = require("../models/Vote.js");
 let mongoMemoryServer = null;
 const connectDB = async () => {
     const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/kingabwa_awards';
@@ -31,11 +32,12 @@ const connectDB = async () => {
         }
     }
     try {
-        // Removes obsolete indexes from previous schemas (e.g. unique email_1)
-        await User_js_1.User.syncIndexes();
+        // Removes obsolete indexes from previous schemas (e.g. unique email_1,
+        // unique userId/categoryId/editionId that blocked additional paid votes)
+        await Promise.all([User_js_1.User.syncIndexes(), Vote_js_1.Vote.syncIndexes()]);
     }
     catch (syncError) {
-        console.warn(`[DB] User index synchronization failed: ${syncError.message}`);
+        console.warn(`[DB] Index synchronization failed: ${syncError.message}`);
     }
 };
 exports.connectDB = connectDB;

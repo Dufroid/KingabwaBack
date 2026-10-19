@@ -17,10 +17,18 @@ export interface IPaymentTransaction extends Document {
     editionId?: string;
     categoryId?: string;
     nomineeId?: string;
-    otpCode?: string;
     increments?: number;
     amountCdf?: number;
     providerLabel?: string;
+    merchantPhone?: string;
+    payerPhone?: string;
+    declaredTransactionId?: string;
+    declaredAt?: Date;
+    validatedBy?: string;
+    validatedAt?: Date;
+    rejectedBy?: string;
+    rejectedAt?: Date;
+    rejectionReason?: string;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -49,10 +57,18 @@ const PaymentTransactionSchema: Schema = new Schema(
       editionId: { type: String, default: '' },
       categoryId: { type: String, default: '' },
       nomineeId: { type: String, default: '' },
-      otpCode: { type: String, default: '' },
       increments: { type: Number, default: 0 },
       amountCdf: { type: Number, default: 0 },
       providerLabel: { type: String, default: '' },
+      merchantPhone: { type: String, default: '' },
+      payerPhone: { type: String, default: '' },
+      declaredTransactionId: { type: String, default: '' },
+      declaredAt: { type: Date, default: null },
+      validatedBy: { type: String, default: '' },
+      validatedAt: { type: Date, default: null },
+      rejectedBy: { type: String, default: '' },
+      rejectedAt: { type: Date, default: null },
+      rejectionReason: { type: String, default: '' },
     },
   },
   { timestamps: true }

@@ -6,8 +6,29 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteNominee = exports.updateNominee = exports.createNominee = exports.getNomineeBySlug = exports.getNominees = exports.handleNomineeImageUpload = exports.uploadNomineeImage = void 0;
 const multer_1 = __importDefault(require("multer"));
 const Nominee_js_1 = require("../models/Nominee.js");
+const Vote_js_1 = require("../models/Vote.js");
 const cloudinary_js_1 = require("../config/cloudinary.js");
 const index_js_1 = require("../validators/index.js");
+const getConfirmedVoteCounts = async (nomineeIds) => {
+    if (nomineeIds.length === 0)
+        return new Map();
+    const rows = await Vote_js_1.Vote.aggregate([
+        {
+            $match: {
+                nomineeId: { $in: nomineeIds },
+                status: 'CONFIRMED',
+                voteType: { $in: ['FREE', 'PAID'] },
+            },
+        },
+        {
+            $group: {
+                _id: '$nomineeId',
+                voteCount: { $sum: { $ifNull: ['$points', 1] } },
+            },
+        },
+    ]);
+    return new Map(rows.map((row) => [String(row._id), row.voteCount]));
+};
 exports.uploadNomineeImage = (0, multer_1.default)({
     storage: multer_1.default.memoryStorage(),
     limits: {
@@ -62,7 +83,15 @@ const getNominees = async (req, res) => {
         const nominees = await Nominee_js_1.Nominee.find(filter)
             .populate('categoryId', 'name slug icon')
             .populate('editionId', 'name year status');
-        return res.json({ success: true, count: nominees.length, data: nominees });
+        const voteCounts = await getConfirmedVoteCounts(nominees.map((nominee) => nominee._id));
+        return res.json({
+            success: true,
+            count: nominees.length,
+            data: nominees.map((nominee) => ({
+                ...nominee.toObject(),
+                voteCount: voteCounts.get(String(nominee._id)) ?? 0,
+            })),
+        });
     }
     catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -77,7 +106,14 @@ const getNomineeBySlug = async (req, res) => {
         if (!nominee) {
             return res.status(404).json({ success: false, message: 'Candidat introuvable.' });
         }
-        return res.json({ success: true, data: nominee });
+        const voteCounts = await getConfirmedVoteCounts([nominee._id]);
+        return res.json({
+            success: true,
+            data: {
+                ...nominee.toObject(),
+                voteCount: voteCounts.get(String(nominee._id)) ?? 0,
+            },
+        });
     }
     catch (error) {
         return res.status(500).json({ success: false, message: error.message });

@@ -61,9 +61,9 @@ const seed = async () => {
         location: 'Palais des Arts, Kinshasa',
         image: 'https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=1200',
         startDate: new Date('2026-01-01'),
-        ceremonyDate: new Date('2026-11-28'),
-        votingStartDate: new Date('2026-08-01'),
-        votingEndDate: new Date('2026-11-15'),
+        ceremonyDate: new Date('2026-11-04T20:00:00+01:00'),
+        votingStartDate: new Date('2026-10-20T00:00:00+01:00'),
+        votingEndDate: new Date('2026-10-27T23:59:59+01:00'),
         status: 'OPEN',
     });
     console.log('🏆 Award Edition 2026 created.');
@@ -144,7 +144,7 @@ const seed = async () => {
             ],
             socialLinks: { facebook: 'https://facebook.com', linkedin: 'https://linkedin.com' },
             status: 'ACTIVE',
-            voteCount: 142,
+            voteCount: 0,
         },
         {
             editionId: edition2026._id,
@@ -160,7 +160,7 @@ const seed = async () => {
             ],
             socialLinks: { facebook: 'https://facebook.com', instagram: 'https://instagram.com' },
             status: 'ACTIVE',
-            voteCount: 98,
+            voteCount: 0,
         },
         // Entrepreneur de l'année
         {
@@ -177,7 +177,7 @@ const seed = async () => {
             ],
             socialLinks: { linkedin: 'https://linkedin.com', twitter: 'https://twitter.com' },
             status: 'ACTIVE',
-            voteCount: 115,
+            voteCount: 0,
         },
         {
             editionId: edition2026._id,
@@ -190,7 +190,7 @@ const seed = async () => {
             achievements: ['Plus de 5 points de vente ouverts à Kinshasa', 'Prix Innovation Agroalimentaire 2025'],
             socialLinks: { instagram: 'https://instagram.com' },
             status: 'ACTIVE',
-            voteCount: 88,
+            voteCount: 0,
         },
         // Artiste de l'année
         {
@@ -204,7 +204,7 @@ const seed = async () => {
             achievements: ['Exposition solo à l\'Institut Français de Kinshasa', 'Trophée du Meilleur Sculptural Urbain'],
             socialLinks: { instagram: 'https://instagram.com', youtube: 'https://youtube.com' },
             status: 'ACTIVE',
-            voteCount: 210,
+            voteCount: 0,
         },
     ];
     await Nominee_js_1.Nominee.insertMany(nomineesData);

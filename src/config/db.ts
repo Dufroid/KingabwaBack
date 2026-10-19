@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { User } from '../models/User.js';
+import { Vote } from '../models/Vote.js';
 
 let mongoMemoryServer: MongoMemoryServer | null = null;
 
@@ -27,10 +28,11 @@ export const connectDB = async (): Promise<void> => {
   }
 
   try {
-    // Removes obsolete indexes from previous schemas (e.g. unique email_1)
-    await User.syncIndexes();
+    // Removes obsolete indexes from previous schemas (e.g. unique email_1,
+    // unique userId/categoryId/editionId that blocked additional paid votes)
+    await Promise.all([User.syncIndexes(), Vote.syncIndexes()]);
   } catch (syncError) {
-    console.warn(`[DB] User index synchronization failed: ${(syncError as Error).message}`);
+    console.warn(`[DB] Index synchronization failed: ${(syncError as Error).message}`);
   }
 };
 

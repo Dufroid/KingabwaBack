@@ -20,12 +20,29 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Le mot de passe est requis'),
 });
 
+const phoneSchema = z.string().trim().min(8, 'Le numéro de téléphone est requis').refine((value) => /^\+?[0-9\s\-()]{8,20}$/.test(value), {
+  message: 'Numéro de téléphone invalide',
+});
+
+export const initiatePaidVoteSchema = z.object({
+  editionId: z.string().min(1, 'L\'identifiant de l\'édition est requis'),
+  categoryId: z.string().min(1, 'L\'identifiant de la catégorie est requis'),
+  nomineeId: z.string().min(1, 'L\'identifiant du candidat est requis'),
+  provider: z.enum(['MPESA', 'ORANGE_MONEY'], { message: 'Opérateur de paiement invalide' }),
+  increments: z.number().int().min(1).max(10),
+});
+
+export const declarePaidVoteSchema = z.object({
+  reference: z.string().trim().min(4, 'La référence de paiement est requise'),
+  payerPhone: phoneSchema,
+  transactionId: z.string().trim().min(4, 'L\'identifiant de transaction reçu par SMS est requis'),
+});
+
 export const castVoteSchema = z.object({
   editionId: z.string().min(1, 'L\'identifiant de l\'édition est requis'),
   categoryId: z.string().min(1, 'L\'identifiant de la catégorie est requis'),
   nomineeId: z.string().min(1, 'L\'identifiant du candidat est requis'),
   voteType: z.enum(['FREE', 'PAID']).default('FREE'),
-  paymentReference: z.string().trim().optional(),
 });
 
 export const proposalSchema = z.object({

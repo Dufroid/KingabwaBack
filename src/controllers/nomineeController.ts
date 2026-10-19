@@ -1,8 +1,31 @@
 import { Request, Response } from 'express';
 import multer from 'multer';
 import { Nominee } from '../models/Nominee.js';
+import { Vote } from '../models/Vote.js';
 import { buildLocalUploadResponse, isCloudinaryConfigured, uploadToCloudinary } from '../config/cloudinary.js';
 import { createNomineeSchema } from '../validators/index.js';
+
+const getConfirmedVoteCounts = async (nomineeIds: any[]): Promise<Map<string, number>> => {
+  if (nomineeIds.length === 0) return new Map();
+
+  const rows = await Vote.aggregate([
+    {
+      $match: {
+        nomineeId: { $in: nomineeIds },
+        status: 'CONFIRMED',
+        voteType: { $in: ['FREE', 'PAID'] },
+      },
+    },
+    {
+      $group: {
+        _id: '$nomineeId',
+        voteCount: { $sum: { $ifNull: ['$points', 1] } },
+      },
+    },
+  ]);
+
+  return new Map(rows.map((row) => [String(row._id), row.voteCount]));
+};
 
 export const uploadNomineeImage = multer({
   storage: multer.memoryStorage(),
@@ -61,7 +84,16 @@ export const getNominees = async (req: Request, res: Response) => {
       .populate('categoryId', 'name slug icon')
       .populate('editionId', 'name year status');
 
-    return res.json({ success: true, count: nominees.length, data: nominees });
+    const voteCounts = await getConfirmedVoteCounts(nominees.map((nominee) => nominee._id));
+
+    return res.json({
+      success: true,
+      count: nominees.length,
+      data: nominees.map((nominee) => ({
+        ...nominee.toObject(),
+        voteCount: voteCounts.get(String(nominee._id)) ?? 0,
+      })),
+    });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -77,7 +109,15 @@ export const getNomineeBySlug = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Candidat introuvable.' });
     }
 
-    return res.json({ success: true, data: nominee });
+    const voteCounts = await getConfirmedVoteCounts([nominee._id]);
+
+    return res.json({
+      success: true,
+      data: {
+        ...nominee.toObject(),
+        voteCount: voteCounts.get(String(nominee._id)) ?? 0,
+      },
+    });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
