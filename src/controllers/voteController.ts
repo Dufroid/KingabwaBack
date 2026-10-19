@@ -5,6 +5,7 @@ import { AwardEdition } from '../models/AwardEdition.js';
 import { Nominee } from '../models/Nominee.js';
 import { Category } from '../models/Category.js';
 import { castVoteSchema } from '../validators/index.js';
+import { getVotingWindowMessage, isVotingWindowOpen } from '../config/votingWindow.js';
 
 export const castVote = async (req: AuthRequest, res: Response) => {
   try {
@@ -32,6 +33,10 @@ export const castVote = async (req: AuthRequest, res: Response) => {
         success: false,
         message: 'Les votes pour cette édition ne sont pas actuellement ouverts.',
       });
+    }
+
+    if (!isVotingWindowOpen()) {
+      return res.status(400).json({ success: false, message: getVotingWindowMessage() });
     }
 
     const category = await Category.findById(categoryId);

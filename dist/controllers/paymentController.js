@@ -8,6 +8,7 @@ const AwardEdition_js_1 = require("../models/AwardEdition.js");
 const Category_js_1 = require("../models/Category.js");
 const index_js_1 = require("../validators/index.js");
 const manualPayment_js_1 = require("../config/manualPayment.js");
+const votingWindow_js_1 = require("../config/votingWindow.js");
 const getPreviousPaidTransaction = (userId, editionId, categoryId, nomineeId) => PaymentTransaction_js_1.PaymentTransaction.findOne({
     userId,
     'metadata.nomineeId': nomineeId,
@@ -68,6 +69,9 @@ const initiatePaidVotePayment = async (req, res) => {
         const edition = await AwardEdition_js_1.AwardEdition.findById(editionId);
         if (!edition || edition.status !== 'OPEN') {
             return res.status(400).json({ success: false, message: 'L’édition n’est pas ouverte au vote.' });
+        }
+        if (!(0, votingWindow_js_1.isVotingWindowOpen)()) {
+            return res.status(400).json({ success: false, message: (0, votingWindow_js_1.getVotingWindowMessage)() });
         }
         const category = await Category_js_1.Category.findById(categoryId);
         if (!category || !category.votingEnabled) {

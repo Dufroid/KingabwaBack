@@ -13,6 +13,7 @@ import {
   getManualPaymentMethods,
   getProviderInfo,
 } from '../config/manualPayment.js';
+import { getVotingWindowMessage, isVotingWindowOpen } from '../config/votingWindow.js';
 
 const getPreviousPaidTransaction = (
   userId: string,
@@ -92,6 +93,10 @@ export const initiatePaidVotePayment = async (req: AuthRequest, res: Response) =
     const edition = await AwardEdition.findById(editionId);
     if (!edition || edition.status !== 'OPEN') {
       return res.status(400).json({ success: false, message: 'L’édition n’est pas ouverte au vote.' });
+    }
+
+    if (!isVotingWindowOpen()) {
+      return res.status(400).json({ success: false, message: getVotingWindowMessage() });
     }
 
     const category = await Category.findById(categoryId);

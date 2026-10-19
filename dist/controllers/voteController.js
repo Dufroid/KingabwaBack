@@ -6,6 +6,7 @@ const AwardEdition_js_1 = require("../models/AwardEdition.js");
 const Nominee_js_1 = require("../models/Nominee.js");
 const Category_js_1 = require("../models/Category.js");
 const index_js_1 = require("../validators/index.js");
+const votingWindow_js_1 = require("../config/votingWindow.js");
 const castVote = async (req, res) => {
     try {
         const userId = req.user?.userId;
@@ -28,6 +29,9 @@ const castVote = async (req, res) => {
                 success: false,
                 message: 'Les votes pour cette édition ne sont pas actuellement ouverts.',
             });
+        }
+        if (!(0, votingWindow_js_1.isVotingWindowOpen)()) {
+            return res.status(400).json({ success: false, message: (0, votingWindow_js_1.getVotingWindowMessage)() });
         }
         const category = await Category_js_1.Category.findById(categoryId);
         if (!category || !category.votingEnabled) {
