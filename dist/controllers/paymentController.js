@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.declarePaidVotePayment = exports.initiatePaidVotePayment = exports.getPaidVoteContext = exports.getPaymentMethods = void 0;
+exports.initiatePaidVotePayment = exports.getPaidVoteContext = exports.getPaymentMethods = void 0;
 const Vote_js_1 = require("../models/Vote.js");
 const PaymentTransaction_js_1 = require("../models/PaymentTransaction.js");
 const Nominee_js_1 = require("../models/Nominee.js");
@@ -22,10 +22,6 @@ const getPendingTransaction = (userId, editionId, categoryId, nomineeId) => Paym
     'metadata.editionId': editionId,
     status: 'PENDING',
 }).sort({ createdAt: -1 });
-const buildReference = () => {
-    const randomPart = Math.random().toString(36).slice(2, 8).toUpperCase();
-    return `KA-${Date.now().toString(36).toUpperCase()}-${randomPart}`;
-};
 const getPaymentMethods = async (_req, res) => {
     return res.json({ success: true, data: (0, manualPayment_js_1.getManualPaymentMethods)() });
 };
@@ -53,7 +49,6 @@ const getPaidVoteContext = async (req, res) => {
                 pricePerIncrement: manualPayment_js_1.VOICE_PRICE_CDF,
                 currency: 'CDF',
                 hasPendingPayment: Boolean(pendingPayment),
-                pendingReference: pendingPayment?.reference || null,
             },
         });
     }
@@ -89,7 +84,7 @@ const initiatePaidVotePayment = async (req, res) => {
         if (pendingPayment) {
             return res.status(400).json({
                 success: false,
-                message: `Vous avez déjà un paiement en attente de validation (référence ${pendingPayment.reference}).`,
+                message: 'Vous avez déjà un paiement en attente de validation pour ce candidat.',
             });
         }
         if (!previousPaid && increments !== manualPayment_js_1.FIRST_PURCHASE_VOICES) {
@@ -112,7 +107,6 @@ const initiatePaidVotePayment = async (req, res) => {
             });
         }
         const amount = increments * manualPayment_js_1.VOICE_PRICE_CDF;
-        const reference = buildReference();
         const vote = await Vote_js_1.Vote.create({
             userId,
             editionId,
@@ -121,7 +115,6 @@ const initiatePaidVotePayment = async (req, res) => {
             voteType: 'PAID',
             points: increments,
             status: 'PENDING',
-            paymentReference: reference,
             confirmedAt: null,
         });
         const payment = await PaymentTransaction_js_1.PaymentTransaction.create({
@@ -132,7 +125,6 @@ const initiatePaidVotePayment = async (req, res) => {
             currency: 'CDF',
             phone: providerInfo.phone,
             status: 'PENDING',
-            reference,
             externalTransactionId: '',
             metadata: {
                 editionId,
@@ -144,12 +136,11 @@ const initiatePaidVotePayment = async (req, res) => {
                 merchantPhone: providerInfo.phone,
             },
         });
-        const instructions = `Envoyez ${amount} FC au numéro ${providerInfo.phone} (${providerInfo.operator}) en indiquant la référence ${reference} dans le motif, puis saisissez l'ID de transaction reçu par SMS.`;
+        const instructions = `Envoyez ${amount} FC au numéro ${providerInfo.phone} (${providerInfo.operator}). Votre paiement sera vérifié par l'administrateur.`;
         return res.status(201).json({
             success: true,
-            message: 'Demande de paiement créée. Effectuez le transfert puis déclarez votre transaction.',
+            message: 'Paiement enregistré. Votre vote sera validé dès vérification du transfert par l’administrateur.',
             payment: {
-                reference,
                 provider,
                 providerLabel: providerInfo.label,
                 operator: providerInfo.operator,
@@ -161,7 +152,6 @@ const initiatePaidVotePayment = async (req, res) => {
                 status: payment.status,
                 instructions,
             },
-            vote,
         });
     }
     catch (error) {
@@ -172,61 +162,3 @@ const initiatePaidVotePayment = async (req, res) => {
     }
 };
 exports.initiatePaidVotePayment = initiatePaidVotePayment;
-const declarePaidVotePayment = async (req, res) => {
-    try {
-        const userId = req.user?.userId;
-        if (!userId) {
-            return res.status(401).json({ success: false, message: 'Non autorisé.' });
-        }
-        const { reference, payerPhone, transactionId } = index_js_1.declarePaidVoteSchema.parse(req.body);
-        const payment = await PaymentTransaction_js_1.PaymentTransaction.findOne({ reference, userId });
-        if (!payment) {
-            return res.status(404).json({ success: false, message: 'Transaction introuvable.' });
-        }
-        if (payment.status === 'PAID') {
-            return res.status(400).json({ success: false, message: 'Cette transaction a déjà été validée.' });
-        }
-        if (payment.status !== 'PENDING') {
-            return res.status(400).json({
-                success: false,
-                message: 'Cette transaction ne peut plus être déclarée. Contactez l’organisation.',
-            });
-        }
-        const duplicate = await PaymentTransaction_js_1.PaymentTransaction.findOne({
-            _id: { $ne: payment._id },
-            'metadata.declaredTransactionId': transactionId,
-            status: { $in: ['PENDING', 'PAID'] },
-        });
-        if (duplicate) {
-            return res.status(400).json({
-                success: false,
-                message: 'Cet identifiant de transaction a déjà été soumis pour un autre paiement.',
-            });
-        }
-        payment.metadata = {
-            ...(payment.metadata || {}),
-            payerPhone,
-            declaredTransactionId: transactionId,
-            declaredAt: new Date(),
-        };
-        await payment.save();
-        return res.json({
-            success: true,
-            message: 'Paiement déclaré. Votre vote sera comptabilisé dès validation par l’administrateur.',
-            payment: {
-                reference: payment.reference,
-                provider: payment.provider,
-                amount: payment.amount,
-                currency: payment.currency,
-                status: payment.status,
-            },
-        });
-    }
-    catch (error) {
-        if (error.errors) {
-            return res.status(400).json({ success: false, message: error.errors[0].message });
-        }
-        return res.status(500).json({ success: false, message: error.message });
-    }
-};
-exports.declarePaidVotePayment = declarePaidVotePayment;

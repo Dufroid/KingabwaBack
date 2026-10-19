@@ -174,7 +174,7 @@ const getTransactions = async (req, res) => {
             .populate('userId', 'firstName lastName phone role')
             .populate({
             path: 'voteId',
-            select: 'voteType points status nomineeId categoryId editionId paymentReference confirmedAt',
+            select: 'voteType points status nomineeId categoryId editionId confirmedAt',
             populate: [
                 { path: 'nomineeId', select: 'fullName profileImage' },
                 { path: 'categoryId', select: 'name' },
@@ -186,7 +186,6 @@ const getTransactions = async (req, res) => {
             count: transactions.length,
             data: transactions.map((tx) => ({
                 _id: tx._id,
-                reference: tx.reference,
                 provider: tx.provider,
                 amount: tx.amount,
                 currency: tx.currency,
@@ -213,7 +212,6 @@ const getTransactions = async (req, res) => {
                         nomineeName: tx.voteId.nomineeId?.fullName || null,
                         categoryName: tx.voteId.categoryId?.name || null,
                         editionName: tx.voteId.editionId?.name || null,
-                        paymentReference: tx.voteId.paymentReference,
                         confirmedAt: tx.voteId.confirmedAt,
                     }
                     : null,

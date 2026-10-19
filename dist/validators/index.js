@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createBlogPostSchema = exports.createNomineeSchema = exports.createCategorySchema = exports.proposalSchema = exports.castVoteSchema = exports.declarePaidVoteSchema = exports.initiatePaidVoteSchema = exports.loginSchema = exports.registerSchema = void 0;
+exports.createBlogPostSchema = exports.createNomineeSchema = exports.createCategorySchema = exports.proposalSchema = exports.castVoteSchema = exports.initiatePaidVoteSchema = exports.loginSchema = exports.registerSchema = void 0;
 const zod_1 = require("zod");
 const uploadAssetSchema = zod_1.z.union([
     zod_1.z.string().url(),
@@ -19,20 +19,12 @@ exports.loginSchema = zod_1.z.object({
     phone: zod_1.z.string().trim().min(8, 'Renseignez un numéro de téléphone valide'),
     password: zod_1.z.string().min(1, 'Le mot de passe est requis'),
 });
-const phoneSchema = zod_1.z.string().trim().min(8, 'Le numéro de téléphone est requis').refine((value) => /^\+?[0-9\s\-()]{8,20}$/.test(value), {
-    message: 'Numéro de téléphone invalide',
-});
 exports.initiatePaidVoteSchema = zod_1.z.object({
     editionId: zod_1.z.string().min(1, 'L\'identifiant de l\'édition est requis'),
     categoryId: zod_1.z.string().min(1, 'L\'identifiant de la catégorie est requis'),
     nomineeId: zod_1.z.string().min(1, 'L\'identifiant du candidat est requis'),
     provider: zod_1.z.enum(['MPESA', 'ORANGE_MONEY'], { message: 'Opérateur de paiement invalide' }),
     increments: zod_1.z.number().int().min(1).max(10),
-});
-exports.declarePaidVoteSchema = zod_1.z.object({
-    reference: zod_1.z.string().trim().min(4, 'La référence de paiement est requise'),
-    payerPhone: phoneSchema,
-    transactionId: zod_1.z.string().trim().min(4, 'L\'identifiant de transaction reçu par SMS est requis'),
 });
 exports.castVoteSchema = zod_1.z.object({
     editionId: zod_1.z.string().min(1, 'L\'identifiant de l\'édition est requis'),

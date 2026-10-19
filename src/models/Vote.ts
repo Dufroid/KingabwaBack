@@ -8,7 +8,6 @@ export interface IVote extends Document {
   voteType: 'FREE' | 'PAID';
   points: number;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
-  paymentReference?: string;
   confirmedAt?: Date;
   createdAt: Date;
 }
@@ -22,7 +21,6 @@ const VoteSchema: Schema = new Schema(
     voteType: { type: String, enum: ['FREE', 'PAID'], default: 'FREE' },
     points: { type: Number, default: 1 },
     status: { type: String, enum: ['PENDING', 'CONFIRMED', 'CANCELLED'], default: 'CONFIRMED' },
-    paymentReference: { type: String, default: '' },
     confirmedAt: { type: Date, default: null },
   },
   { timestamps: { createdAt: true, updatedAt: false } }

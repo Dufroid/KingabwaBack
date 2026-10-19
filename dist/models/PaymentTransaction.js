@@ -51,7 +51,6 @@ const PaymentTransactionSchema = new mongoose_1.Schema({
         enum: ['PENDING', 'PAID', 'FAILED', 'CANCELLED'],
         default: 'PENDING',
     },
-    reference: { type: String, required: true, unique: true },
     externalTransactionId: { type: String, default: '' },
     metadata: {
         editionId: { type: String, default: '' },

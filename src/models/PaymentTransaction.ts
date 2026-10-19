@@ -11,7 +11,6 @@ export interface IPaymentTransaction extends Document {
   currency: string;
   phone: string;
   status: PaymentStatus;
-  reference: string;
   externalTransactionId?: string;
   metadata?: {
     editionId?: string;
@@ -51,7 +50,6 @@ const PaymentTransactionSchema: Schema = new Schema(
       enum: ['PENDING', 'PAID', 'FAILED', 'CANCELLED'],
       default: 'PENDING',
     },
-    reference: { type: String, required: true, unique: true },
     externalTransactionId: { type: String, default: '' },
     metadata: {
       editionId: { type: String, default: '' },

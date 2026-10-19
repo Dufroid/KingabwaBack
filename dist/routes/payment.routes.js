@@ -7,5 +7,4 @@ const router = (0, express_1.Router)();
 router.get('/methods', auth_js_1.authenticateToken, paymentController_js_1.getPaymentMethods);
 router.get('/paid-vote-context', auth_js_1.authenticateToken, paymentController_js_1.getPaidVoteContext);
 router.post('/mobile-money/initiate', auth_js_1.authenticateToken, paymentController_js_1.initiatePaidVotePayment);
-router.post('/mobile-money/declare', auth_js_1.authenticateToken, paymentController_js_1.declarePaidVotePayment);
 exports.default = router;

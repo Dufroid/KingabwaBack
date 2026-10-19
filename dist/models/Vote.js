@@ -43,7 +43,6 @@ const VoteSchema = new mongoose_1.Schema({
     voteType: { type: String, enum: ['FREE', 'PAID'], default: 'FREE' },
     points: { type: Number, default: 1 },
     status: { type: String, enum: ['PENDING', 'CONFIRMED', 'CANCELLED'], default: 'CONFIRMED' },
-    paymentReference: { type: String, default: '' },
     confirmedAt: { type: Date, default: null },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 // Free-vote uniqueness is enforced in the controller; paid votes create one record per validated payment.
