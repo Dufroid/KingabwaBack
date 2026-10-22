@@ -7,7 +7,7 @@ import { AwardEdition } from '../models/AwardEdition.js';
 import { Category } from '../models/Category.js';
 import { initiatePaidVoteSchema } from '../validators/index.js';
 import {
-  FIRST_PURCHASE_VOICES,
+  MIN_VOICES_PER_PAYMENT,
   MAX_VOICES_PER_PAYMENT,
   VOICE_PRICE_CDF,
   getManualPaymentMethods,
@@ -15,20 +15,7 @@ import {
 } from '../config/manualPayment.js';
 import { getVotingWindowMessage, isVotingWindowOpen } from '../config/votingWindow.js';
 
-const getPreviousPaidTransaction = (
-  userId: string,
-  editionId: string,
-  categoryId: string,
-  nomineeId: string
-) =>
-  PaymentTransaction.findOne({
-    userId,
-    'metadata.nomineeId': nomineeId,
-    'metadata.categoryId': categoryId,
-    'metadata.editionId': editionId,
-    status: 'PAID',
-  });
-
+/** Retourne le paiement PENDING en cours pour cet utilisateur/candidat */
 const getPendingTransaction = (
   userId: string,
   editionId: string,
@@ -58,18 +45,13 @@ export const getPaidVoteContext = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, message: 'Contexte de vote incomplet.' });
     }
 
-    const [previousPaid, pendingPayment] = await Promise.all([
-      getPreviousPaidTransaction(userId, editionId, categoryId, nomineeId),
-      getPendingTransaction(userId, editionId, categoryId, nomineeId),
-    ]);
+    const pendingPayment = await getPendingTransaction(userId, editionId, categoryId, nomineeId);
 
     return res.json({
       success: true,
       data: {
-        firstPurchase: !previousPaid,
-        minIncrements: previousPaid ? 1 : FIRST_PURCHASE_VOICES,
+        minIncrements: MIN_VOICES_PER_PAYMENT,
         maxIncrements: MAX_VOICES_PER_PAYMENT,
-        lockedIncrements: previousPaid ? null : FIRST_PURCHASE_VOICES,
         pricePerIncrement: VOICE_PRICE_CDF,
         currency: 'CDF',
         hasPendingPayment: Boolean(pendingPayment),
@@ -90,48 +72,43 @@ export const initiatePaidVotePayment = async (req: AuthRequest, res: Response) =
     const validated = initiatePaidVoteSchema.parse(req.body);
     const { editionId, categoryId, nomineeId, provider, increments } = validated;
 
+    // Vérification édition ouverte
     const edition = await AwardEdition.findById(editionId);
     if (!edition || edition.status !== 'OPEN') {
-      return res.status(400).json({ success: false, message: 'L’édition n’est pas ouverte au vote.' });
+      return res.status(400).json({ success: false, message: "L\u2019édition n\u2019est pas ouverte au vote." });
     }
 
+    // Vérification fenêtre de vote
     if (!isVotingWindowOpen()) {
       return res.status(400).json({ success: false, message: getVotingWindowMessage() });
     }
 
+    // Vérification catégorie active
     const category = await Category.findById(categoryId);
     if (!category || !category.votingEnabled) {
       return res.status(400).json({ success: false, message: 'Cette catégorie ne reçoit plus de votes.' });
     }
 
+    // Vérification nominé actif
     const nominee = await Nominee.findOne({ _id: nomineeId, categoryId, status: 'ACTIVE' });
     if (!nominee) {
       return res.status(404).json({ success: false, message: 'Candidat introuvable.' });
     }
 
-    const [previousPaid, pendingPayment] = await Promise.all([
-      getPreviousPaidTransaction(userId, editionId, categoryId, nomineeId),
-      getPendingTransaction(userId, editionId, categoryId, nomineeId),
-    ]);
-
+    // Vérification qu'aucun paiement PENDING n'est déjà en cours pour ce candidat
+    const pendingPayment = await getPendingTransaction(userId, editionId, categoryId, nomineeId);
     if (pendingPayment) {
       return res.status(400).json({
         success: false,
-        message: 'Vous avez déjà un paiement en attente de validation pour ce candidat.',
+        message: "Vous avez déjà un paiement en attente de validation pour ce candidat. Patientez jusqu\u2019\u00e0 sa validation avant d\u2019en soumettre un nouveau.",
       });
     }
 
-    if (!previousPaid && increments !== FIRST_PURCHASE_VOICES) {
+    // Validation du nombre de voix (1 à 300)
+    if (increments < MIN_VOICES_PER_PAYMENT || increments > MAX_VOICES_PER_PAYMENT) {
       return res.status(400).json({
         success: false,
-        message: `La première transaction payante doit être de ${FIRST_PURCHASE_VOICES} voix (${FIRST_PURCHASE_VOICES * VOICE_PRICE_CDF} FC).`,
-      });
-    }
-
-    if (previousPaid && (increments < 1 || increments > MAX_VOICES_PER_PAYMENT)) {
-      return res.status(400).json({
-        success: false,
-        message: `Vous pouvez acheter entre 1 et ${MAX_VOICES_PER_PAYMENT} voix par paiement.`,
+        message: `Vous pouvez acheter entre ${MIN_VOICES_PER_PAYMENT} et ${MAX_VOICES_PER_PAYMENT} voix par paiement.`,
       });
     }
 
@@ -145,6 +122,7 @@ export const initiatePaidVotePayment = async (req: AuthRequest, res: Response) =
 
     const amount = increments * VOICE_PRICE_CDF;
 
+    // Création du vote en attente
     const vote = await Vote.create({
       userId,
       editionId,
@@ -156,6 +134,7 @@ export const initiatePaidVotePayment = async (req: AuthRequest, res: Response) =
       confirmedAt: null,
     });
 
+    // Création de la transaction de paiement
     const payment = await PaymentTransaction.create({
       userId,
       voteId: vote._id,
@@ -176,11 +155,11 @@ export const initiatePaidVotePayment = async (req: AuthRequest, res: Response) =
       },
     });
 
-    const instructions = `Envoyez ${amount} FC au numéro ${providerInfo.phone} (${providerInfo.operator}). Votre paiement sera vérifié par l'administrateur.`;
+    const instructions = `Envoyez ${amount.toLocaleString('fr-CD')} FC au numéro ${providerInfo.phone} (${providerInfo.operator}). Votre paiement sera vérifié par l'administrateur.`;
 
     return res.status(201).json({
       success: true,
-      message: 'Paiement enregistré. Votre vote sera validé dès vérification du transfert par l’administrateur.',
+      message: "Paiement enregistré. Votre vote sera validé dès vérification du transfert par l\u2019administrateur.",
       payment: {
         provider,
         providerLabel: providerInfo.label,

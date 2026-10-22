@@ -1,8 +1,8 @@
 export type ManualPaymentProvider = 'MPESA' | 'ORANGE_MONEY';
 
 export const VOICE_PRICE_CDF = 500;
-export const FIRST_PURCHASE_VOICES = 10;
-export const MAX_VOICES_PER_PAYMENT = 10;
+export const MIN_VOICES_PER_PAYMENT = 1;
+export const MAX_VOICES_PER_PAYMENT = 300;
 
 const providerConfig = {
   MPESA: {
@@ -36,7 +36,7 @@ export const getManualPaymentMethods = () => ({
   merchantName: (process.env.PAYMENT_MERCHANT_NAME || 'KINGABWA AWARDS').trim(),
   currency: 'CDF',
   pricePerVoice: VOICE_PRICE_CDF,
-  firstPurchaseVoices: FIRST_PURCHASE_VOICES,
+  minVoicesPerPayment: MIN_VOICES_PER_PAYMENT,
   maxVoicesPerPayment: MAX_VOICES_PER_PAYMENT,
   providers: (Object.keys(providerConfig) as ManualPaymentProvider[]).map((provider) =>
     getProviderInfo(provider)

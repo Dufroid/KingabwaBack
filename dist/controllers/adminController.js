@@ -54,21 +54,18 @@ const handleEditionImageUpload = async (req, res) => {
 exports.handleEditionImageUpload = handleEditionImageUpload;
 const getDashboardMetrics = async (req, res) => {
     try {
-        const totalUsers = await User_js_1.User.countDocuments();
-        const totalVoters = await User_js_1.User.countDocuments({ role: 'VOTER' });
-        const totalVotes = await Vote_js_1.Vote.countDocuments();
-        const totalNominees = await Nominee_js_1.Nominee.countDocuments({ status: 'ACTIVE' });
-        const totalCategories = await Category_js_1.Category.countDocuments();
-        const totalBlogPosts = await BlogPost_js_1.BlogPost.countDocuments({ status: 'PUBLISHED' });
-        const totalProposals = await NominationProposal_js_1.NominationProposal.countDocuments();
-        // Votes count grouped by category for visual charts
+        const [totalUsers, totalVoters, totalVotes, totalNominees, totalCategories, totalBlogPosts, totalProposals,] = await Promise.all([
+            User_js_1.User.countDocuments(),
+            User_js_1.User.countDocuments({ role: 'VOTER' }),
+            Vote_js_1.Vote.countDocuments(),
+            Nominee_js_1.Nominee.countDocuments({ status: 'ACTIVE' }),
+            Category_js_1.Category.countDocuments(),
+            BlogPost_js_1.BlogPost.countDocuments({ status: 'PUBLISHED' }),
+            NominationProposal_js_1.NominationProposal.countDocuments(),
+        ]);
+        // ─── Votes par catégorie (count de documents) ───────────────────────────
         const votesByCategory = await Vote_js_1.Vote.aggregate([
-            {
-                $group: {
-                    _id: '$categoryId',
-                    votes: { $sum: 1 },
-                },
-            },
+            { $group: { _id: '$categoryId', votes: { $sum: 1 } } },
             {
                 $lookup: {
                     from: 'categories',
@@ -78,10 +75,97 @@ const getDashboardMetrics = async (req, res) => {
                 },
             },
             { $unwind: '$category' },
+            { $project: { name: '$category.name', votes: 1 } },
+            { $sort: { votes: -1 } },
+        ]);
+        // ─── Votes par nominé (total de points/voix) par catégorie ─────────────
+        const votesByNominee = await Vote_js_1.Vote.aggregate([
+            { $match: { status: 'CONFIRMED' } },
+            {
+                $group: {
+                    _id: '$nomineeId',
+                    totalVoix: { $sum: '$points' },
+                    categoryId: { $first: '$categoryId' },
+                },
+            },
+            {
+                $lookup: {
+                    from: 'nominees',
+                    localField: '_id',
+                    foreignField: '_id',
+                    as: 'nominee',
+                },
+            },
+            { $unwind: '$nominee' },
+            {
+                $lookup: {
+                    from: 'categories',
+                    localField: 'categoryId',
+                    foreignField: '_id',
+                    as: 'category',
+                },
+            },
+            { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    name: '$category.name',
-                    votes: 1,
+                    nomineeName: '$nominee.fullName',
+                    profileImage: '$nominee.profileImage',
+                    categoryName: { $ifNull: ['$category.name', 'Inconnue'] },
+                    totalVoix: 1,
+                },
+            },
+            { $sort: { totalVoix: -1 } },
+        ]);
+        // ─── Statistiques générales ────────────────────────────────────────────
+        const [freeVotesCount, paidVotesAggregate, uniqueVoters, totalRevenueAgg] = await Promise.all([
+            Vote_js_1.Vote.countDocuments({ voteType: 'FREE', status: 'CONFIRMED' }),
+            Vote_js_1.Vote.aggregate([
+                { $match: { voteType: 'PAID', status: 'CONFIRMED' } },
+                { $group: { _id: null, totalVoix: { $sum: '$points' }, count: { $sum: 1 } } },
+            ]),
+            Vote_js_1.Vote.distinct('userId', { status: 'CONFIRMED' }),
+            PaymentTransaction_js_1.PaymentTransaction.aggregate([
+                { $match: { status: 'PAID' } },
+                { $group: { _id: null, totalAmount: { $sum: '$amount' } } },
+            ]),
+        ]);
+        const totalPaidVoix = paidVotesAggregate[0]?.totalVoix || 0;
+        const totalPaidTransactions = paidVotesAggregate[0]?.count || 0;
+        const totalRevenueCdf = totalRevenueAgg[0]?.totalAmount || 0;
+        const generalStats = {
+            totalFreeVotes: freeVotesCount,
+            totalPaidVoix,
+            totalPaidTransactions,
+            totalRevenueCdf,
+            uniqueVoters: uniqueVoters.length,
+        };
+        // ─── Top 5 Votants (par voix accordées) ────────────────────────────────
+        const topVoters = await Vote_js_1.Vote.aggregate([
+            { $match: { status: 'CONFIRMED' } },
+            {
+                $group: {
+                    _id: '$userId',
+                    totalVoix: { $sum: '$points' },
+                    nbVotes: { $sum: 1 },
+                },
+            },
+            { $sort: { totalVoix: -1 } },
+            { $limit: 5 },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: '_id',
+                    foreignField: '_id',
+                    as: 'user',
+                },
+            },
+            { $unwind: '$user' },
+            {
+                $project: {
+                    fullName: { $concat: ['$user.firstName', ' ', '$user.lastName'] },
+                    phone: '$user.phone',
+                    totalVoix: 1,
+                    nbVotes: 1,
                 },
             },
         ]);
@@ -100,6 +184,9 @@ const getDashboardMetrics = async (req, res) => {
             },
             chartData: {
                 votesByCategory,
+                votesByNominee,
+                generalStats,
+                topVoters,
             },
         });
     }
@@ -137,7 +224,6 @@ exports.updateUserRole = updateUserRole;
 const getEditions = async (req, res) => {
     try {
         const editions = await AwardEdition_js_1.AwardEdition.find().sort({ year: -1 });
-        console.log(editions, "eee");
         return res.json({ success: true, data: editions });
     }
     catch (error) {
@@ -264,7 +350,7 @@ const validateTransaction = async (req, res) => {
             success: true,
             message: confirmation
                 ? `Paiement validé. ${confirmation.vote.points} voix ont été ajoutées à ${confirmation.nominee?.fullName || 'ce candidat'}.`
-                : 'Paiement marqué comme validé, mais aucun vote en attente n’a pu être confirmé.',
+                : "Paiement marqué comme validé, mais aucun vote en attente n\u2019a pu être confirmé.",
             payment,
             vote: confirmation?.vote || null,
         });

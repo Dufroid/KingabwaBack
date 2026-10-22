@@ -25,7 +25,7 @@ export const initiatePaidVoteSchema = z.object({
   categoryId: z.string().min(1, 'L\'identifiant de la catégorie est requis'),
   nomineeId: z.string().min(1, 'L\'identifiant du candidat est requis'),
   provider: z.enum(['MPESA', 'ORANGE_MONEY'], { message: 'Opérateur de paiement invalide' }),
-  increments: z.number().int().min(1).max(10),
+  increments: z.number().int().min(1).max(300),
 });
 
 export const castVoteSchema = z.object({

@@ -24,7 +24,7 @@ exports.initiatePaidVoteSchema = zod_1.z.object({
     categoryId: zod_1.z.string().min(1, 'L\'identifiant de la catégorie est requis'),
     nomineeId: zod_1.z.string().min(1, 'L\'identifiant du candidat est requis'),
     provider: zod_1.z.enum(['MPESA', 'ORANGE_MONEY'], { message: 'Opérateur de paiement invalide' }),
-    increments: zod_1.z.number().int().min(1).max(10),
+    increments: zod_1.z.number().int().min(1).max(300),
 });
 exports.castVoteSchema = zod_1.z.object({
     editionId: zod_1.z.string().min(1, 'L\'identifiant de l\'édition est requis'),
